@@ -1,0 +1,12 @@
+### C++ ###
+*.dll
+*.exe
+*.exp
+*.lib
+*.obj
+
+### Python ###
+__pycache__/
+
+### VSCode ###
+.vscode/
