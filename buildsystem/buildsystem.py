@@ -2,22 +2,48 @@ import subprocess
 from enum import Enum
 
 verbose = False
-toolchain = None
 
-class transformer(object):
-	class TransformResults(Enum):
+class builder(object):
+	class BuildResults(Enum):
 		OK = 0
 		ERROR = 1
-	in_exts = []
-	out_ext = ''
-	def check_supported(self, deps = []):
-		return all(d.name[-4:] in self.in_exts for d in deps)
+	def supports(self, dep):
+		return True
+	def build(self, dep):
+		if self.up_to_date(dep):
+			print('[-] ' + dep.name)
+			return
+		print('[b] ' + dep.name)
+	def up_to_date(self, dep):
+		return False
 
 class toolchain(object):
-	def __init__(self, transformers = []):
-		self.transformers = transformers
-	def transform(self, dep = None):
-		pass
+	def __init__(self, builders = {}):
+		super().__init__()
+		self.builders = {
+			source: [builder()],
+			compiled: [builder()],
+			executable: [builder()],
+			sharedlib: [builder()],
+			staticlib: [builder()],
+			project: [builder()],
+			}
+		self.builders.update(builders)
+	def build(self, dep):
+		for d in dep.deps:
+			self.build(d)
+		if type(dep) in self.builders.keys():
+			builders = self.builders[type(dep)]
+			built = False
+			for b in builders:
+				if b.supports(dep):
+					# print(' trying builder ' + b.__class__.__name__ + ' for ' + dep.name + ' (' + dep.__class__.__name__ + ')')
+					b.build(dep)
+					built = True
+			if not built:
+				print('warning: could not find builder for ' + dep.name + ' (' + dep.__class__.__name__ + ')')
+		else:
+			print('warning: could not find builder for type ' + str(type(dep)))
 
 class node(object):
 	def __init__(self, value = None, out_edges = []):
@@ -27,7 +53,7 @@ class node(object):
 class dependency(node):
 	def __init__(self, name = None, deps = []):
 		super().__init__(value = name, out_edges = deps)
-		self.filename = name
+		self.builtname = name
 		
 	@property
 	def name(self):
@@ -42,41 +68,24 @@ class dependency(node):
 	@deps.setter
 	def deps(self, deps):
 		self.out_edges = deps
-	
-	def build(self):
-		pass
-		
-	def uptodate(self):
-		return False
 		
 class source(dependency):
-	def __init__(self, name = None, file = None):
-		super().__init__(name = name, deps = file)
+	def __init__(self, name = None):
+		super().__init__(name = name)
 
 class compiled(dependency):
 	def __init__(self, src = None, name = None, cflags = None):
 		self.cflags = cflags
 		
 		if not name and isinstance(src, (str,)):
-			if src[-4:] == '.cpp':
-				name = src[:-4]
-			else:
-				print('warning: unknown source file extension')
-				name = src
+			name = src
 				
 		if type(src) is str:
 			super().__init__(name = name, deps = [source(src)])
 		else:
 			super().__init__(name = name, deps = src)
-	
-	def build(self):
-		if self.uptodate():
-			return
-			
-		super().build()
-		toolchain.transform(self)
 		
-class executable(dependency):
+class linkable(dependency):
 	def __init__(self, name = None, deps = [], srcs = [], cflags = None, lflags = None):
 		self.lflags = lflags
 		
@@ -93,76 +102,19 @@ class executable(dependency):
 			super().__init__(name = name, deps = deps)
 		else:
 			super().__init__(name = name, deps = [deps])
-	
-	def build(self):
-		super().build()
-		for d in self.deps:
-			d.build()
 		
-		toolchain.transform(self)
-		
-class sharedlib(dependency):
+class executable(linkable):
 	def __init__(self, name = None, deps = [], srcs = [], cflags = None, lflags = None):
-		self.lflags = lflags
+		super().__init__(name = name, deps = deps, srcs = srcs, cflags = cflags, lflags = lflags)
 		
-		if type(srcs) is list:
-			if len(srcs) > 0:
-				for s in srcs:
-					deps.append(compiled(src = s, cflags = cflags))
-		if not deps:
-			if type(deps) is str:
-				super().__init__(name = name, deps = [compiled(deps)])
-			else:
-				super().__init__(name = name, deps = [compiled(c) for c in deps])
-		elif type(deps) is list:
-			super().__init__(name = name, deps = deps)
-		else:
-			super().__init__(name = name, deps = [deps])
-	
-	def build(self):
-		super().build()
-		for d in self.deps:
-			d.build()
-		
-		toolchain.transform(self)
-		
-class staticlib(dependency):
+class sharedlib(linkable):
 	def __init__(self, name = None, deps = [], srcs = [], cflags = None, lflags = None):
-		self.lflags = lflags
+		super().__init__(name = name, deps = deps, srcs = srcs, cflags = cflags, lflags = lflags)
 		
-		if type(srcs) is list:
-			if len(srcs) > 0:
-				for s in srcs:
-					deps.append(compiled(src = s, cflags = cflags))
-		if not deps:
-			if type(deps) is str:
-				super().__init__(name = name, deps = [compiled(deps)])
-			else:
-				super().__init__(name = name, deps = [compiled(c) for c in deps])
-		elif type(deps) is list:
-			super().__init__(name = name, deps = deps)
-		else:
-			super().__init__(name = name, deps = [deps])
-	
-	def build(self):
-		super().build()
-		for d in self.deps:
-			d.build()
-		
-		toolchain.transform(self)
+class staticlib(linkable):
+	def __init__(self, name = None, deps = [], srcs = [], cflags = None, lflags = None):
+		super().__init__(name = name, deps = deps, srcs = srcs, cflags = cflags, lflags = lflags)
 		
 class project(dependency):
 	def __init__(self, name = '', deps = []):
 		super().__init__(name = name, deps = deps)
-
-	def build(self):
-		super().build()
-		for d in self.deps:
-			d.build()
-		
-class solution(project):
-	def __init__(self, name = '', deps = []):
-		super().__init__(name = name, deps = deps)
-	
-	def build(self):
-		super().build()

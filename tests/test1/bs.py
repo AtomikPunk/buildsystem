@@ -1,8 +1,8 @@
 import buildsystem.buildsystem as bs
 import buildsystem.vc14_x64 as vc2015
 
-bs.verbose = True
-bs.toolchain = vc2015.toolchain()
+bs.verbose = False
+tc = vc2015.toolchain()
 
 e1 = bs.executable('myproj', srcs = ['mysrc1.cpp'])
 p1 = bs.project('myproj', [e1])
@@ -19,6 +19,7 @@ l2 = bs.sharedlib('mylib2', srcs = ['mylib2.cpp'])
 
 l2u = bs.executable('mylib2use', srcs = ['mylib2use.cpp'], deps = [l2], cflags = ['/EHsc'])
 
-s = bs.solution('mysolution', deps = [p1, p2, l1, l1u, l2, l2u])
+s = bs.project('mysolution', deps = [p1, p2, l1, l1u, l2, l2u])
 
-s.build()
+# print('\n'.join([str(b) for b in tc.builders]))
+tc.build(s)
