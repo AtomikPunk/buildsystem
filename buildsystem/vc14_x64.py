@@ -36,34 +36,36 @@ class toolchain(bs.toolchain):
 
 class command_builder(bs.builder):
 	def supports(self, dep):
-		return all([os.path.splitext(d.builtname)[1] in self.supported_exts for d in dep.deps])
+		(filebase,ext) = os.path.splitext(dep.name)
+		dep.buildname = filebase + self.out_ext
+
+		return all([os.path.splitext(d.buildname)[1] in self.supported_exts for d in dep.deps])
 
 	def up_to_date(self, dep):
-		if os.path.isfile(dep.builtname):
-			target_timestamp = os.path.getmtime(dep.builtname)
+		if os.path.isfile(dep.buildname):
+			target_timestamp = os.path.getmtime(dep.buildname)
 			# print(str(target_timestamp))
 			# print('\n'.join([str(os.path.getmtime(d.filename or d.name)) for d in dep.deps]))
 			# print('verifying if target ' + dep.name + ' is up-to-date...')
 			# for d in dep.deps:
-				# isfile = os.path.isfile(d.name)
-				# if isfile:
-					# mtime = os.path.getmtime(d.name)
-					# if mtime <= target_timestamp:
-						# print('  ' + d.name + ' is up-to-date...')
-					# else:
-						# print('  ' + d.name + ' is not up-to-date!')
-				# else:
-					# print('  ' + d.name + ' is not a file...')
-			return all([os.path.isfile(d.name) and os.path.getmtime(d.name) <= target_timestamp for d in dep.deps])
+			# 	isfile = os.path.isfile(d.name)
+			# 	if isfile:
+			# 		mtime = os.path.getmtime(d.name)
+			# 		if mtime <= target_timestamp:
+			# 			print('  ' + d.name + ' is up-to-date...')
+			# 		else:
+			# 			print('  ' + d.name + ' is not up-to-date!')
+			# 	else:
+			# 		print('  ' + d.name + ' is not a file...')
+			return all([os.path.isfile(d.buildname) and os.path.getmtime(d.buildname) <= target_timestamp for d in dep.deps])
 		# else:
-			# print('  ' + dep.builtname + ' does not exist...')
+			# print('  ' + dep.buildname + ' does not exist...')
 		return False
-		
+
 	def call_build_command(self, cmd, dep):
 		if bs.verbose:
 			print(subprocess.list2cmdline(cmd))
 		#print(dep.name + ' <- [' + ' '.join([d.name for d in dep.deps]) + ']')
-		print('[b] ' + dep.builtname)
 
 		subprocess.call(cmd, stderr = subprocess.DEVNULL, stdout = subprocess.DEVNULL, env = toolchain().env())
 					
@@ -72,12 +74,7 @@ class builder_cpp(command_builder):
 	supported_exts = ('.cpp', '.cc')
 		
 	def build(self, dep):
-		(filebase,ext) = os.path.splitext(dep.name)
-		dep.builtname = filebase + self.out_ext
-		if self.up_to_date(dep):
-			print('[-] ' + dep.builtname)
-			return
-		cmd = [toolchain().compiler_path(), '/Fo' + dep.builtname, '/c', [d.builtname for d in dep.deps]]
+		cmd = [toolchain().compiler_path(), '/Fo' + dep.buildname, '/c', [d.buildname for d in dep.deps]]
 		if dep.cflags:
 			cmd.extend(dep.cflags)
 		self.call_build_command(cmd, dep)
@@ -89,7 +86,7 @@ class builder_linkable(command_builder):
 		)
 	
 	def call_build_command(self, cmd, dep):
-		cmd.extend([d.builtname for d in dep.deps])
+		cmd.extend([d.buildname for d in dep.deps])
 		if dep.lflags:
 			cmd.extend(dep.lflags)
 		super().call_build_command(cmd, dep)
@@ -98,24 +95,14 @@ class builder_exe(builder_linkable):
 	out_ext = '.exe'
 		
 	def build(self, dep):
-		(filebase,ext) = os.path.splitext(dep.name)
-		dep.builtname = filebase + self.out_ext
-		if self.up_to_date(dep):
-			print('[-] ' + dep.builtname)
-			return
-		cmd = [toolchain().linker_path(), '/out:' + dep.builtname]
+		cmd = [toolchain().linker_path(), '/out:' + dep.buildname]
 		self.call_build_command(cmd, dep)
 		
 class builder_stlib(builder_linkable):
 	out_ext = '.lib'
 		
 	def build(self, dep):
-		(filebase,ext) = os.path.splitext(dep.name)
-		dep.builtname = filebase + self.out_ext
-		if self.up_to_date(dep):
-			print('[-] ' + dep.builtname)
-			return
-		cmd = [toolchain().librarian_path(), '/out:' + dep.builtname]
+		cmd = [toolchain().librarian_path(), '/out:' + dep.buildname]
 		self.call_build_command(cmd, dep)
 
 
@@ -123,10 +110,5 @@ class builder_shlib(builder_linkable):
 	out_ext = '.lib'
 		
 	def build(self, dep):
-		(filebase,ext) = os.path.splitext(dep.name)
-		dep.builtname = filebase + self.out_ext
-		if self.up_to_date(dep):
-			print('[-] ' + dep.builtname)
-			return
-		cmd = [toolchain().linker_path(), '/dll', '/out:' + dep.name + '.dll']#, '/implib:' + dep.filename]
+		cmd = [toolchain().linker_path(), '/dll', '/out:' + dep.name + '.dll']#, '/implib:' + dep.buildname]
 		self.call_build_command(cmd, dep)

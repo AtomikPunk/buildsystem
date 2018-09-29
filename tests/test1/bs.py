@@ -1,6 +1,10 @@
 import buildsystem.buildsystem as bs
 import buildsystem.vc14_x64 as vc2015
 
+import time
+
+start_time = time.time()
+
 bs.verbose = False
 tc = vc2015.toolchain()
 
@@ -23,3 +27,6 @@ s = bs.project('mysolution', deps = [p1, p2, l1, l1u, l2, l2u])
 
 # print('\n'.join([str(b) for b in tc.builders]))
 tc.build(s)
+
+end_time = time.time()
+print('Build time: ' + str(round(end_time - start_time, 6)) + 's')
