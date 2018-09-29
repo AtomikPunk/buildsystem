@@ -1,12 +1,12 @@
 import buildsystem.buildsystem as bs
-import buildsystem.vc14_x64 as vc2015
+import buildsystem.vc14_x64 as vc14_x64
 
 import time
 
 start_time = time.time()
 
 bs.verbose = False
-tc = vc2015.toolchain()
+tc = vc14_x64.toolchain()
 
 e1 = bs.executable('myproj', srcs = ['mysrc1.cpp'])
 p1 = bs.project('myproj', [e1])

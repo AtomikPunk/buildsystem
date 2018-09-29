@@ -1,57 +1,6 @@
-import subprocess
 from enum import Enum
 
 verbose = False
-
-class builder(object):
-	class BuildResults(Enum):
-		OK = 0
-		ERROR = 1
-	def supports(self, dep):
-		return True
-	def build(self, dep):
-		pass
-	def up_to_date(self, dep):
-		return False
-
-class builder_alwaysuptodate(builder):
-	def up_to_date(self, dep):
-		return True
-
-class toolchain(object):
-	def __init__(self, builders = {}):
-		super().__init__()
-		self.builders = {
-			source: [builder_alwaysuptodate()],
-			compiled: [builder()],
-			executable: [builder()],
-			sharedlib: [builder()],
-			staticlib: [builder()],
-			project: [builder_alwaysuptodate()],
-			}
-		self.builders.update(builders)
-	def build(self, dep):
-		for d in dep.deps:
-			self.build(d)
-		if type(dep) in self.builders.keys():
-			builders = self.builders[type(dep)]
-			built = False
-			for b in builders:
-				if b.supports(dep):
-					# print(' trying builder ' + b.__class__.__name__ + ' for ' + dep.name + ' (' + dep.__class__.__name__ + ')')
-					if not self.up_to_date(b, dep):
-						print('[b] ' + dep.buildname)
-						b.build(dep)
-					else:
-						print('[-] ' + dep.buildname)
-					built = True
-					break
-			if not built:
-				print('warning: could not find builder for ' + dep.name + ' (' + dep.__class__.__name__ + ')')
-		else:
-			print('warning: could not find builder for type ' + str(type(dep)))
-	def up_to_date(self, builder, dep):
-		return builder.up_to_date(dep)
 
 class node(object):
 	def __init__(self, value = None, out_edges = []):
