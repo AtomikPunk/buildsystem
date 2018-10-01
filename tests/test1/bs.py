@@ -23,7 +23,10 @@ l2 = bs.sharedlib('mylib2', srcs = ['mylib2.cpp'])
 
 l2u = bs.executable('mylib2use', srcs = ['mylib2use.cpp'], deps = [l2], cflags = ['/EHsc'])
 
-s = bs.project('mysolution', deps = [p1, p2, l1, l1u, l2, l2u])
+ps1 = bs.compiled('sub1/sub1.cpp')
+ps1u = bs.executable('ps1u', srcs = ['ps1u.cpp'], deps = [ps1])
+
+s = bs.project('mysolution', deps = [p1, p2, l1, l1u, l2, l2u, ps1u])
 
 # print('\n'.join([str(b) for b in tc.builders]))
 tc.build(s)

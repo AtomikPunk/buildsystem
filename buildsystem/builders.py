@@ -37,4 +37,5 @@ class command_builder(builder):
 	def call_build_command(self, cmd, dep):
 		if bs.verbose:
 			print(subprocess.list2cmdline(cmd))
-		subprocess.call(cmd, stderr = subprocess.DEVNULL, stdout = subprocess.DEVNULL, env = self.toolchain.env())
+		completedprocess = subprocess.run(cmd, env = self.toolchain.env())
+		return completedprocess.returncode == 0

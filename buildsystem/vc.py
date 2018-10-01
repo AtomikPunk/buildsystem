@@ -46,10 +46,10 @@ class builder_cpp(bu.command_builder):
 	supported_exts = ('.cpp', '.cc')
 		
 	def build(self, dep):
-		cmd = [self.toolchain.compiler_path(), '/Fo' + dep.buildname, '/c', [d.buildname for d in dep.deps]]
+		cmd = [self.toolchain.compiler_path(), '/nologo', '/Fo' + dep.buildname, '/c', [d.buildname for d in dep.deps]]
 		if dep.cflags:
 			cmd.extend(dep.cflags)
-		self.call_build_command(cmd, dep)
+		return self.call_build_command(cmd, dep)
 
 class builder_linkable(bu.command_builder):
 	supported_exts = ('.obj', '.lib')
@@ -58,26 +58,26 @@ class builder_linkable(bu.command_builder):
 		cmd.extend([d.buildname for d in dep.deps])
 		if dep.lflags:
 			cmd.extend(dep.lflags)
-		super().call_build_command(cmd, dep)
+		return super().call_build_command(cmd, dep)
 			
 class builder_exe(builder_linkable):
 	out_ext = '.exe'
 		
 	def build(self, dep):
-		cmd = [self.toolchain.linker_path(), '/out:' + dep.buildname]
-		self.call_build_command(cmd, dep)
+		cmd = [self.toolchain.linker_path(), '/nologo', '/out:' + dep.buildname]
+		return self.call_build_command(cmd, dep)
 		
 class builder_stlib(builder_linkable):
 	out_ext = '.lib'
 		
 	def build(self, dep):
-		cmd = [self.toolchain.librarian_path(), '/out:' + dep.buildname]
-		self.call_build_command(cmd, dep)
+		cmd = [self.toolchain.librarian_path(), '/nologo', '/out:' + dep.buildname]
+		return self.call_build_command(cmd, dep)
 
 
 class builder_shlib(builder_linkable):
 	out_ext = '.lib'
 		
 	def build(self, dep):
-		cmd = [self.toolchain.linker_path(), '/dll', '/out:' + dep.name + '.dll']#, '/implib:' + dep.buildname]
-		self.call_build_command(cmd, dep)
+		cmd = [self.toolchain.linker_path(), '/nologo', '/dll', '/out:' + dep.name + '.dll']#, '/implib:' + dep.buildname]
+		return self.call_build_command(cmd, dep)
