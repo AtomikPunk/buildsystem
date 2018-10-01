@@ -31,8 +31,10 @@ class source(dependency):
 		super().__init__(name = name)
 
 class compiled(dependency):
-	def __init__(self, src = None, name = None, cflags = None):
+	def __init__(self, src = None, name = None, incdirs = [], intincdirs = [], cflags = None):
 		self.cflags = cflags
+		self.incdirs = incdirs
+		self.intincdirs = intincdirs
 		
 		if not name and isinstance(src, (str,)):
 			name = src
@@ -43,13 +45,13 @@ class compiled(dependency):
 			super().__init__(name = name, deps = src)
 		
 class linkable(dependency):
-	def __init__(self, name = None, deps = [], srcs = [], cflags = None, lflags = None):
+	def __init__(self, name = None, deps = [], srcs = [], incdirs = [], intincdirs = [], cflags = None, lflags = None):
 		self.lflags = lflags
 		
 		if type(srcs) is list:
 			if len(srcs) > 0:
 				for s in srcs:
-					deps.append(compiled(src = s, cflags = cflags))
+					deps.append(compiled(src = s, incdirs = incdirs, intincdirs = intincdirs, cflags = cflags))
 		if not deps:
 			if type(deps) is str:
 				super().__init__(name = name, deps = [compiled(deps)])
@@ -61,17 +63,13 @@ class linkable(dependency):
 			super().__init__(name = name, deps = [deps])
 		
 class executable(linkable):
-	def __init__(self, name = None, deps = [], srcs = [], cflags = None, lflags = None):
-		super().__init__(name = name, deps = deps, srcs = srcs, cflags = cflags, lflags = lflags)
+	pass
 		
 class sharedlib(linkable):
-	def __init__(self, name = None, deps = [], srcs = [], cflags = None, lflags = None):
-		super().__init__(name = name, deps = deps, srcs = srcs, cflags = cflags, lflags = lflags)
+	pass
 		
 class staticlib(linkable):
-	def __init__(self, name = None, deps = [], srcs = [], cflags = None, lflags = None):
-		super().__init__(name = name, deps = deps, srcs = srcs, cflags = cflags, lflags = lflags)
+	pass
 		
 class project(dependency):
-	def __init__(self, name = '', deps = []):
-		super().__init__(name = name, deps = deps)
+	pass

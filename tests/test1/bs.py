@@ -1,11 +1,13 @@
 import buildsystem.buildsystem as bs
 import buildsystem.vc14_x64 as vc14_x64
+from buildsystem.consolecolors import consolecolors as cc
 
 import time
 
 start_time = time.time()
 
-bs.verbose = False
+bs.verbose = False # disable verbose output
+cc.enable = False # disable colored output
 tc = vc14_x64.toolchain()
 
 e1 = bs.executable('myproj', srcs = ['mysrc1.cpp'])
@@ -24,7 +26,7 @@ l2 = bs.sharedlib('mylib2', srcs = ['mylib2.cpp'])
 l2u = bs.executable('mylib2use', srcs = ['mylib2use.cpp'], deps = [l2], cflags = ['/EHsc'])
 
 ps1 = bs.compiled('sub1/sub1.cpp')
-ps1u = bs.executable('ps1u', srcs = ['ps1u.cpp'], deps = [ps1])
+ps1u = bs.executable('ps1u', srcs = ['ps1u.cpp'], deps = [ps1], incdirs = ['sub1'])
 
 s = bs.project('mysolution', deps = [p1, p2, l1, l1u, l2, l2u, ps1u])
 

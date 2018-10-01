@@ -1,6 +1,6 @@
 import buildsystem.builders as bu
 import buildsystem.buildsystem as bs
-import buildsystem.consolecolors as cc
+from buildsystem.consolecolors import consolecolors as cc
 
 class toolchain(object):
 	def __init__(self, builders = {}):
@@ -25,11 +25,12 @@ class toolchain(object):
 					if not b.up_to_date(dep):
 						success = b.build(dep)
 						if success:
-							print('[' + cc.green + 'b' + cc.reset + '] ' + dep.buildname)
+							print('[' + cc().green + 'b' + cc().reset + '] ' + dep.buildname)
 						else:
-							print('[' + cc.red + 'f' + cc.reset + '] ' + dep.buildname)
+							print('[' + cc().red + 'f' + cc().reset + '] ' + dep.buildname)
 					else:
-						print('[-] ' + dep.buildname)
+						if bs.verbose:
+							print('[-] ' + dep.buildname)
 					built = True
 					break
 			if not built:

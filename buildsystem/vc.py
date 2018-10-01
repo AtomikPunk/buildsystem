@@ -47,6 +47,8 @@ class builder_cpp(bu.command_builder):
 		
 	def build(self, dep):
 		cmd = [self.toolchain.compiler_path(), '/nologo', '/Fo' + dep.buildname, '/c', [d.buildname for d in dep.deps]]
+		if dep.incdirs:
+			cmd.extend(['/I' + i for i in dep.incdirs])
 		if dep.cflags:
 			cmd.extend(dep.cflags)
 		return self.call_build_command(cmd, dep)
