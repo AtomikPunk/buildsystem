@@ -28,7 +28,10 @@ class builder(object):
 	def clean(self, dep):
 		if bs.verbose:
 			print('Removing ' + dep.buildname + ' (' + dep.name + ')')
-		os.remove(dep.buildname)
+		try:
+			os.remove(dep.buildname)
+		except OSError:
+			pass
 	def need_clean(self, dep):
 		return os.path.isfile(dep.buildname)
 

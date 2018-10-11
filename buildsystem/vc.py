@@ -99,7 +99,25 @@ class builder_exe(builder_linkable):
 	def build(self, dep, opts = None):
 		cmd = [self.toolchain.linker_path(), '/nologo', '/out:' + dep.buildname]
 		return self.call_build_command(cmd, dep, opts = opts)
+
+	def clean(self, dep):
+		super().clean(dep)
+		if bs.verbose:
+			print('Removing ' + dep.name + '.exp' + ' (' + dep.name + ')')
+			print('Removing ' + dep.name + '.lib' + ' (' + dep.name + ')')
 		
+		try:
+			os.remove(dep.name + '.exp')
+		except OSError:
+			pass
+		try:
+			os.remove(dep.name + '.lib')
+		except OSError:
+			pass
+
+	def need_clean(self, dep):
+		return os.path.isfile(dep.buildname) or os.path.isfile(dep.name + '.exp') or os.path.isfile(dep.name + '.lib')
+
 class builder_stlib(builder_linkable):
 	def __init__(self, toolchain, opts = None):
 		super().__init__(toolchain, opts = opts)
@@ -108,7 +126,6 @@ class builder_stlib(builder_linkable):
 	def build(self, dep, opts = None):
 		cmd = [self.toolchain.librarian_path(), '/nologo', '/out:' + dep.buildname]
 		return self.call_build_command(cmd, dep, opts = opts)
-
 
 class builder_shlib(builder_linkable):
 	def __init__(self, toolchain, opts = None):
@@ -123,7 +140,16 @@ class builder_shlib(builder_linkable):
 		super().clean(dep)
 		if bs.verbose:
 			print('Removing ' + dep.name + '.dll' + ' (' + dep.name + ')')
-		os.remove(dep.name + '.dll')
+			print('Removing ' + dep.name + '.exp' + ' (' + dep.name + ')')
+		
+		try:
+			os.remove(dep.name + '.dll')
+		except OSError:
+			pass
+		try:
+			os.remove(dep.name + '.exp')
+		except OSError:
+			pass
 
 	def need_clean(self, dep):
-		return os.path.isfile(dep.buildname) or os.path.isfile(dep.name + '.dll')
+		return os.path.isfile(dep.buildname) or os.path.isfile(dep.name + '.dll') or os.path.isfile(dep.name + '.exp')
