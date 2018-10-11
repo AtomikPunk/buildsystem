@@ -7,7 +7,7 @@ import os
 class toolchain(tc.toolchain):
 	def __init__(self, builders = {}):
 		super().__init__(builders = {
-			bs.compiled: [builder_cpp(self)],
+			bs.compiled: [builder_cpp2obj(self)],
 			bs.executable: [builder_exe(self)],
 			bs.staticlib: [builder_stlib(self)],
 			bs.sharedlib: [builder_shlib(self)],
@@ -41,45 +41,89 @@ class toolchain(tc.toolchain):
 		# )
 		raise NotImplementedError('vc.toolchain is an abstract base class')
 
-class builder_cpp(bu.command_builder):
-	out_ext = '.obj'
-	supported_exts = ('.cpp', '.cc')
+class builder_cpp2obj(bu.command_builder):
+	def __init__(self, toolchain, opts = None):
+		super().__init__(toolchain, opts = opts)
+		self.out_ext = '.obj'
+		self.in_exts = ('.cpp', '.cc')
 		
-	def build(self, dep):
+	def setuptarget(self, dep):
+		if bs.verbose:
+			print('setuptarget: ' + dep.name + ' with builder ' + str(type(self)))
+		if dep.name.endswith(self.out_ext):
+			dep.buildname = dep.name
+		else:
+			dep.buildname = dep.name + self.out_ext
+	def build(self, dep, opts = None):
 		cmd = [self.toolchain.compiler_path(), '/nologo', '/Fo' + dep.buildname, '/c', [d.buildname for d in dep.deps]]
-		if dep.incdirs:
-			cmd.extend(['/I' + i for i in dep.incdirs])
-		if dep.cflags:
-			cmd.extend(dep.cflags)
+		incdirs = set()
+		if isinstance(self.options, (bs.options,)):
+			incdirs.update(self.opts.incdirs)
+		if isinstance(dep.options, (bs.options,)):
+			incdirs.update(dep.options.incdirs)
+		if isinstance(opts, (bs.options,)):
+			incdirs.update(opts.incdirs)
+		cmd.extend(['/I' + i for i in incdirs])
+		cflags = set()
+		if isinstance(self.options, (bs.options,)):
+			cflags.update(self.opts.cflags)
+		if isinstance(dep.options, (bs.options,)):
+			cflags.update(dep.options.cflags)
+		if isinstance(opts, (bs.options,)):
+			cflags.update(opts.cflags)
+		cmd.extend(cflags)
 		return self.call_build_command(cmd, dep)
 
 class builder_linkable(bu.command_builder):
-	supported_exts = ('.obj', '.lib')
+	def __init__(self, toolchain, opts = None):
+		super().__init__(toolchain, opts = opts)
+		self.in_exts = ('.obj', '.lib')
 	
-	def call_build_command(self, cmd, dep):
+	def call_build_command(self, cmd, dep, opts = None):
 		cmd.extend([d.buildname for d in dep.deps])
-		if dep.lflags:
-			cmd.extend(dep.lflags)
+		lflags = set()
+		if isinstance(self.options, (bs.options,)):
+			lflags.update(self.options.lflags)
+		if isinstance(dep.options, (bs.options,)):
+			lflags.update(dep.options.lflags)
+		if isinstance(opts, (bs.options,)):
+			lflags.update(opts.lflags)
+		cmd.extend(lflags)
 		return super().call_build_command(cmd, dep)
 			
 class builder_exe(builder_linkable):
-	out_ext = '.exe'
+	def __init__(self, toolchain, opts = None):
+		super().__init__(toolchain, opts = opts)
+		self.out_ext = '.exe'
 		
-	def build(self, dep):
+	def build(self, dep, opts = None):
 		cmd = [self.toolchain.linker_path(), '/nologo', '/out:' + dep.buildname]
-		return self.call_build_command(cmd, dep)
+		return self.call_build_command(cmd, dep, opts = opts)
 		
 class builder_stlib(builder_linkable):
-	out_ext = '.lib'
+	def __init__(self, toolchain, opts = None):
+		super().__init__(toolchain, opts = opts)
+		self.out_ext = '.lib'
 		
-	def build(self, dep):
+	def build(self, dep, opts = None):
 		cmd = [self.toolchain.librarian_path(), '/nologo', '/out:' + dep.buildname]
-		return self.call_build_command(cmd, dep)
+		return self.call_build_command(cmd, dep, opts = opts)
 
 
 class builder_shlib(builder_linkable):
-	out_ext = '.lib'
+	def __init__(self, toolchain, opts = None):
+		super().__init__(toolchain, opts = opts)
+		self.out_ext = '.lib'
 		
-	def build(self, dep):
+	def build(self, dep, opts = None):
 		cmd = [self.toolchain.linker_path(), '/nologo', '/dll', '/out:' + dep.name + '.dll']#, '/implib:' + dep.buildname]
-		return self.call_build_command(cmd, dep)
+		return self.call_build_command(cmd, dep, opts = opts)
+
+	def clean(self, dep):
+		super().clean(dep)
+		if bs.verbose:
+			print('Removing ' + dep.name + '.dll' + ' (' + dep.name + ')')
+		os.remove(dep.name + '.dll')
+
+	def need_clean(self, dep):
+		return os.path.isfile(dep.buildname) or os.path.isfile(dep.name + '.dll')

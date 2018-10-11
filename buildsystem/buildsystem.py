@@ -1,6 +1,16 @@
 from enum import Enum
 
+import os
+
 verbose = False
+
+class options(object):
+	def __init__(self, cflags = set(), lflags = set(), defines = set(), incdirs = set(), intincdirs = set()):
+		self.cflags = cflags
+		self.lflags = lflags
+		self.defines = defines
+		self.incdirs = incdirs
+		self.intincdirs = intincdirs
 
 class node(object):
 	def __init__(self, value = None, out_edges = []):
@@ -10,7 +20,7 @@ class node(object):
 class dependency(node):
 	def __init__(self, name = None, deps = []):
 		super().__init__(value = name, out_edges = deps)
-		self.buildname = name
+		self.buildname = None
 		
 	@property
 	def name(self):
@@ -31,13 +41,15 @@ class source(dependency):
 		super().__init__(name = name)
 
 class compiled(dependency):
-	def __init__(self, src = None, name = None, incdirs = [], intincdirs = [], cflags = None):
-		self.cflags = cflags
-		self.incdirs = incdirs
-		self.intincdirs = intincdirs
+	def __init__(self, src = None, name = None, opts = None):
+		self.options = opts
 		
 		if not name and isinstance(src, (str,)):
-			name = src
+			(filename, ext) = os.path.splitext(src)
+			if ext:
+				name = filename
+			else:
+				name = src
 				
 		if type(src) is str:
 			super().__init__(name = name, deps = [source(src)])
@@ -45,13 +57,13 @@ class compiled(dependency):
 			super().__init__(name = name, deps = src)
 		
 class linkable(dependency):
-	def __init__(self, name = None, deps = [], srcs = [], incdirs = [], intincdirs = [], cflags = None, lflags = None):
-		self.lflags = lflags
+	def __init__(self, name = None, deps = [], srcs = [], opts = None):
+		self.options = opts
 		
 		if type(srcs) is list:
 			if len(srcs) > 0:
 				for s in srcs:
-					deps.append(compiled(src = s, incdirs = incdirs, intincdirs = intincdirs, cflags = cflags))
+					deps.append(compiled(src = s, opts = opts))
 		if not deps:
 			if type(deps) is str:
 				super().__init__(name = name, deps = [compiled(deps)])

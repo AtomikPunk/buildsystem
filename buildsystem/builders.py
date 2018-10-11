@@ -5,28 +5,46 @@ import os
 import subprocess
 
 class builder(object):
+	def __init__(self, opts = None):
+		self.options = opts
+		self.in_exts = ()
+		self.out_ext = ''
 	class BuildResults(Enum):
 		OK = 0
 		ERROR = 1
+	def setuptarget(self, dep):
+		if bs.verbose:
+			print('setuptarget: ' + dep.name + ' with builder ' + str(type(self)))
+		if dep.name.endswith(self.out_ext):
+			dep.buildname = dep.name
+		else:
+			dep.buildname = dep.name + self.out_ext
 	def supports(self, dep):
 		return True
-	def build(self, dep):
+	def build(self, dep, opts = None):
 		pass
 	def up_to_date(self, dep):
 		return False
+	def clean(self, dep):
+		if bs.verbose:
+			print('Removing ' + dep.buildname + ' (' + dep.name + ')')
+		os.remove(dep.buildname)
+	def need_clean(self, dep):
+		return os.path.isfile(dep.buildname)
 
 class builder_alwaysuptodate(builder):
 	def up_to_date(self, dep):
 		return True
+	def need_clean(self, dep):
+		return False
 
 class command_builder(builder):
-	def __init__(self, toolchain):
+	def __init__(self, toolchain, opts = None):
+		super().__init__(opts = opts)
 		self.toolchain = toolchain
 
 	def supports(self, dep):
-		(filebase,ext) = os.path.splitext(dep.name)
-		dep.buildname = filebase + self.out_ext
-		return all([os.path.splitext(d.buildname)[1] in self.supported_exts for d in dep.deps])
+		return all([d.buildname.endswith(self.in_exts) for d in dep.deps])
 
 	def up_to_date(self, dep):
 		if os.path.isfile(dep.buildname):
