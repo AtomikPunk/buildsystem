@@ -5,13 +5,15 @@ import buildsystem.toolchain as tc
 import os
 
 class toolchain(tc.toolchain):
-	def __init__(self, builders = {}):
+	def __init__(self, builders = {}, opts = None, cfg = None):
 		super().__init__(builders = {
 			bs.compiled: [builder_cpp2obj(self)],
 			bs.executable: [builder_exe(self)],
 			bs.staticlib: [builder_stlib(self)],
 			bs.sharedlib: [builder_shlib(self)],
-			})
+			},
+			opts = opts,
+			cfg = cfg)
 		self.builders.update(builders)
 	def toolchain_path(self):
 		# Return path to compiler base path (e.g. return r'C:\Program Files (x86)\Microsoft Visual Studio 14.0')
@@ -46,15 +48,9 @@ class builder_cpp2obj(bu.command_builder):
 		super().__init__(toolchain, opts = opts)
 		self.out_ext = '.obj'
 		self.in_exts = ('.cpp', '.cc')
-		
-	def setuptarget(self, dep):
-		if bs.verbose:
-			print('setuptarget: ' + dep.name + ' with builder ' + str(type(self)))
-		if dep.name.endswith(self.out_ext):
-			dep.buildname = dep.name
-		else:
-			dep.buildname = dep.name + self.out_ext
+
 	def build(self, dep, opts = None):
+		os.makedirs(os.path.dirname(dep.buildname), exist_ok=True)
 		cmd = [self.toolchain.compiler_path(), '/nologo', '/Fo' + dep.buildname, '/c', [d.buildname for d in dep.deps]]
 		incdirs = set()
 		if isinstance(self.options, (bs.options,)):
@@ -97,26 +93,29 @@ class builder_exe(builder_linkable):
 		self.out_ext = '.exe'
 		
 	def build(self, dep, opts = None):
+		os.makedirs(os.path.dirname(dep.buildname), exist_ok=True)
 		cmd = [self.toolchain.linker_path(), '/nologo', '/out:' + dep.buildname]
 		return self.call_build_command(cmd, dep, opts = opts)
 
 	def clean(self, dep):
 		super().clean(dep)
+		deppath = os.path.normpath(os.path.join(self.toolchain.config.outdir,dep.name))
 		if bs.verbose:
-			print('Removing ' + dep.name + '.exp' + ' (' + dep.name + ')')
-			print('Removing ' + dep.name + '.lib' + ' (' + dep.name + ')')
+			print('Removing ' + deppath + '.exp' + ' (' + dep.name + ')')
+			print('Removing ' + deppath + '.lib' + ' (' + dep.name + ')')
 		
 		try:
-			os.remove(dep.name + '.exp')
+			os.remove(deppath + '.exp')
 		except OSError:
 			pass
 		try:
-			os.remove(dep.name + '.lib')
+			os.remove(deppath + '.lib')
 		except OSError:
 			pass
 
 	def need_clean(self, dep):
-		return os.path.isfile(dep.buildname) or os.path.isfile(dep.name + '.exp') or os.path.isfile(dep.name + '.lib')
+		deppath = os.path.normpath(os.path.join(self.toolchain.config.outdir,dep.name))
+		return os.path.isfile(dep.buildname) or os.path.isfile(deppath + '.exp') or os.path.isfile(deppath + '.lib')
 
 class builder_stlib(builder_linkable):
 	def __init__(self, toolchain, opts = None):
@@ -124,6 +123,7 @@ class builder_stlib(builder_linkable):
 		self.out_ext = '.lib'
 		
 	def build(self, dep, opts = None):
+		os.makedirs(os.path.dirname(dep.buildname), exist_ok=True)
 		cmd = [self.toolchain.librarian_path(), '/nologo', '/out:' + dep.buildname]
 		return self.call_build_command(cmd, dep, opts = opts)
 
@@ -133,23 +133,27 @@ class builder_shlib(builder_linkable):
 		self.out_ext = '.lib'
 		
 	def build(self, dep, opts = None):
-		cmd = [self.toolchain.linker_path(), '/nologo', '/dll', '/out:' + dep.name + '.dll']#, '/implib:' + dep.buildname]
+		dllpath = os.path.normpath(os.path.join(self.toolchain.config.outdir,dep.name + '.dll'))
+		os.makedirs(os.path.dirname(dllpath), exist_ok=True)
+		cmd = [self.toolchain.linker_path(), '/nologo', '/dll', '/out:' + dllpath]
 		return self.call_build_command(cmd, dep, opts = opts)
 
 	def clean(self, dep):
 		super().clean(dep)
+		deppath = os.path.normpath(os.path.join(self.toolchain.config.outdir,dep.name))
 		if bs.verbose:
-			print('Removing ' + dep.name + '.dll' + ' (' + dep.name + ')')
-			print('Removing ' + dep.name + '.exp' + ' (' + dep.name + ')')
+			print('Removing ' + deppath + '.dll' + ' (' + dep.name + ')')
+			print('Removing ' + deppath + '.exp' + ' (' + dep.name + ')')
 		
 		try:
-			os.remove(dep.name + '.dll')
+			os.remove(deppath + '.dll')
 		except OSError:
 			pass
 		try:
-			os.remove(dep.name + '.exp')
+			os.remove(deppath + '.exp')
 		except OSError:
 			pass
 
 	def need_clean(self, dep):
-		return os.path.isfile(dep.buildname) or os.path.isfile(dep.name + '.dll') or os.path.isfile(dep.name + '.exp')
+		deppath = os.path.normpath(os.path.join(self.toolchain.config.outdir,dep.name))
+		return os.path.isfile(dep.buildname) or os.path.isfile(deppath + '.dll') or os.path.isfile(deppath + '.exp')

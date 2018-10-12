@@ -12,13 +12,12 @@ class builder(object):
 	class BuildResults(Enum):
 		OK = 0
 		ERROR = 1
-	def setuptarget(self, dep):
+	def setuptarget(self, dep, cfg):
 		if bs.verbose:
 			print('setuptarget: ' + dep.name + ' with builder ' + str(type(self)))
-		if dep.name.endswith(self.out_ext):
-			dep.buildname = dep.name
-		else:
-			dep.buildname = dep.name + self.out_ext
+		dep.buildname = os.path.join(cfg.outdir, os.path.normpath(dep.name))
+		if not dep.buildname.endswith(self.out_ext):
+			dep.buildname += self.out_ext
 	def supports(self, dep):
 		return True
 	def build(self, dep, opts = None):
@@ -36,6 +35,12 @@ class builder(object):
 		return os.path.isfile(dep.buildname)
 
 class builder_alwaysuptodate(builder):
+	def setuptarget(self, dep, cfg):
+		if bs.verbose:
+			print('setuptarget: ' + dep.name + ' with builder ' + str(type(self)))
+		dep.buildname = os.path.normpath(dep.name) # This is not an intermediate file, do not prepend cfg.outdir...
+		if not dep.buildname.endswith(self.out_ext):
+			dep.buildname += self.out_ext
 	def up_to_date(self, dep):
 		return True
 	def need_clean(self, dep):

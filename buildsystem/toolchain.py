@@ -2,8 +2,12 @@ import buildsystem.builders as bu
 import buildsystem.buildsystem as bs
 from buildsystem.consolecolors import consolecolors as cc
 
+class config(object):
+	def __init__(self, outdir='.bs'):
+		self.outdir = outdir
+
 class toolchain(object):
-	def __init__(self, builders = {}, opts = None):
+	def __init__(self, builders = {}, opts = None, cfg = None):
 		super().__init__()
 		self.builders = {
 			bs.source: [bu.builder_alwaysuptodate()],
@@ -15,6 +19,7 @@ class toolchain(object):
 			}
 		self.builders.update(builders)
 		self.options = opts
+		self.config = cfg
 	def build(self, dep):
 		for d in dep.deps:
 			self.build(d)
@@ -23,7 +28,7 @@ class toolchain(object):
 			built = False
 			for b in builders:
 				if b.supports(dep):
-					b.setuptarget(dep)
+					b.setuptarget(dep, self.config)
 					if not b.up_to_date(dep):
 						success = b.build(dep, opts = self.options)
 						if success:
@@ -46,7 +51,7 @@ class toolchain(object):
 			cleaned = False
 			for b in builders:
 				if b.supports(dep):
-					b.setuptarget(dep)
+					b.setuptarget(dep, self.config)
 					if b.need_clean(dep):
 						b.clean(dep)
 						print('[' + cc().green + 'c' + cc().reset + '] ' + dep.buildname + ' <' + b.__class__.__name__ + '>')

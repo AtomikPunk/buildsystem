@@ -1,5 +1,6 @@
 import buildsystem.buildsystem as bs
 import buildsystem.vc14_x64 as vc14_x64
+import buildsystem.toolchain as tc
 from buildsystem.consolecolors import consolecolors as cc
 
 import argparse
@@ -9,6 +10,7 @@ argparser.add_argument('-t', '--tasks', help = 'comma separated list of tasks , 
 argparser.add_argument('-c', '--colors', action = 'store_true', help = 'colored output')
 argparser.add_argument('-v', '--verbose', action = 'store_true', help = 'verbose output')
 argparser.add_argument('-f', '--file', help = 'path to spec file', default = 'build.bs')
+argparser.add_argument('-o', '--outdir', help = 'path to output (build) directory', default = '.bs')
 args = argparser.parse_args()
 
 import time
@@ -25,15 +27,15 @@ spec.loader.exec_module(mod)
 bs.verbose = args.verbose
 cc.enable = args.colors
 
-tc = vc14_x64.toolchain()
+vc = vc14_x64.toolchain(cfg = tc.config(outdir=args.outdir))
 
-# print('\n'.join([str(b) for b in tc.builders]))
+# print('\n'.join([str(b) for b in vc.builders]))
 
 if not hasattr(mod, 'spec'):
 	print('Error: build script must define spec')
 else:
 	for t in args.tasks.split(','):
-		op = getattr(tc, t, None)
+		op = getattr(vc, t, None)
 		if callable(op):
 			print('Task: ' + t)
 			op(mod.spec)
