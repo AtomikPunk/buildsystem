@@ -16,13 +16,17 @@ args = argparser.parse_args()
 import time
 start_time = time.time()
 
-import importlib.util, importlib.machinery
-importlib.machinery.SOURCE_SUFFIXES.append('') # Allow any file extension
-spec = importlib.util.spec_from_file_location('buildscript',args.file)
-mod = importlib.util.module_from_spec(spec)
-importlib.machinery.SOURCE_SUFFIXES.pop() # Revert to known file extensions
-spec.loader.exec_module(mod)
-#print(dir(mod))
+try:
+	import importlib.util, importlib.machinery
+	importlib.machinery.SOURCE_SUFFIXES.append('') # Allow any file extension
+	spec = importlib.util.spec_from_file_location('buildscript',args.file)
+	mod = importlib.util.module_from_spec(spec)
+	importlib.machinery.SOURCE_SUFFIXES.pop() # Revert to known file extensions
+	spec.loader.exec_module(mod)
+	#print(dir(mod))
+except Exception as e:
+	print('Error: could not load build script ' + args.file + ' : ' + str(e))
+	exit()
 
 bs.verbose = args.verbose
 cc.enable = args.colors
