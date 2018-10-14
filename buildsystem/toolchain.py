@@ -20,6 +20,7 @@ class toolchain(object):
 		self.builders.update(builders)
 		self.options = opts
 		self.config = cfg
+
 	def build(self, dep):
 		for d in dep.deps:
 			self.build(d)
@@ -32,17 +33,18 @@ class toolchain(object):
 					if not b.up_to_date(dep):
 						success = b.build(dep, opts = self.options)
 						if success:
-							print('[' + cc().green + 'b' + cc().reset + '] ' + dep.buildname)
+							print('[' + cc().green + 'b' + cc().reset + '] ' + ','.join(dep.outputs))
 						else:
-							print('[' + cc().red + 'f' + cc().reset + '] ' + dep.buildname)
+							print('[' + cc().red + 'f' + cc().reset + '] ' + ','.join(dep.outputs))
 					elif bs.verbose:
-						print('[-] ' + dep.buildname)
+						print('[-] ' + ','.join(dep.outputs))
 					built = True
 					break
 			if not built:
 				print('warning: could not find builder for ' + dep.name + ' (' + dep.__class__.__name__ + ')')
 		else:
 			print('warning: could not find builder for type ' + str(type(dep)))
+			
 	def clean(self, dep):
 		for d in dep.deps:
 			self.clean(d)
@@ -54,12 +56,15 @@ class toolchain(object):
 					b.setuptarget(dep, self.config)
 					if b.need_clean(dep):
 						b.clean(dep)
-						print('[' + cc().green + 'c' + cc().reset + '] ' + dep.buildname + ' <' + b.__class__.__name__ + '>')
+						print('[' + cc().green + 'c' + cc().reset + '] ' + ','.join(dep.outputs))
 					elif bs.verbose:
-						print('[-] ' + dep.buildname)
+						print('[-] ' + ','.join(dep.outputs))
 					cleaned = True
 					break
 			if not cleaned:
 				print('warning: could not find cleaner for ' + dep.name + ' (' + dep.__class__.__name__ + ')')
 		else:
 			print('warning: could not find cleaner for type ' + str(type(dep)))
+
+	def showdeps(self, dep):
+		dep.showdeps()

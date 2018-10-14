@@ -20,8 +20,8 @@ class node(object):
 class dependency(node):
 	def __init__(self, name = None, deps = [], opts = None):
 		super().__init__(value = name, out_edges = deps)
-		self.buildname = None
 		self.options = opts
+		self.outputs = [name]
 		
 	@property
 	def name(self):
@@ -36,6 +36,11 @@ class dependency(node):
 	@deps.setter
 	def deps(self, deps):
 		self.out_edges = deps
+
+	def showdeps(self, lvl = 0):
+		print(' '*lvl + self.name + ' ' + str(self))
+		for d in self.deps:
+			d.showdeps(lvl = lvl+1)
 		
 class source(dependency):
 	def __init__(self, name = None):
@@ -50,26 +55,21 @@ class compiled(dependency):
 			else:
 				name = src
 				
-		if type(src) is str:
+		if isinstance(src, str):
 			super().__init__(name = name, deps = [source(src)], opts = opts)
 		else:
 			super().__init__(name = name, deps = src, opts = opts)
 		
 class linkable(dependency):
 	def __init__(self, name = None, deps = [], srcs = [], opts = None):
-		if type(srcs) is list:
-			if len(srcs) > 0:
-				for s in srcs:
-					deps.append(compiled(src = s, opts = opts))
-		if not deps:
-			if type(deps) is str:
-				super().__init__(name = name, deps = [compiled(deps)], opts = opts)
-			else:
-				super().__init__(name = name, deps = [compiled(c) for c in deps], opts = opts)
-		elif type(deps) is list:
-			super().__init__(name = name, deps = deps, opts = opts)
+		srcdeps = []
+		if isinstance(srcs, list):
+			for s in srcs:
+				srcdeps.append(compiled(src = s, opts = opts))
+		if isinstance(deps, list):
+			super().__init__(name = name, deps = deps + srcdeps, opts = opts)
 		else:
-			super().__init__(name = name, deps = [deps], opts = opts)
+			super().__init__(name = name, deps = [deps] + srcdeps, opts = opts)
 		
 class executable(linkable):
 	pass

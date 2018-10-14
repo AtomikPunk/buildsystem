@@ -3,6 +3,7 @@ import buildsystem.buildsystem as bs
 from enum import Enum
 import os
 import subprocess
+import io
 
 class builder(object):
 	def __init__(self, opts = None):
@@ -15,9 +16,12 @@ class builder(object):
 	def setuptarget(self, dep, cfg):
 		if bs.verbose:
 			print('setuptarget: ' + dep.name + ' with builder ' + str(type(self)))
-		dep.buildname = os.path.join(cfg.outdir, os.path.normpath(dep.name))
-		if not dep.buildname.endswith(self.out_ext):
-			dep.buildname += self.out_ext
+		output = os.path.join(cfg.outdir, os.path.normpath(dep.name))
+		if not output.endswith(self.out_ext):
+			output = output + self.out_ext
+		dep.outputs = [output]
+		if bs.verbose:
+			print('  outputs: ' + ','.join(dep.outputs))
 	def supports(self, dep):
 		return True
 	def build(self, dep, opts = None):
@@ -25,22 +29,26 @@ class builder(object):
 	def up_to_date(self, dep):
 		return False
 	def clean(self, dep):
-		if bs.verbose:
-			print('Removing ' + dep.buildname + ' (' + dep.name + ')')
-		try:
-			os.remove(dep.buildname)
-		except OSError:
-			pass
+		for o in dep.outputs:
+			try:
+				if bs.verbose:
+					print('Removing ' + o)
+				os.remove(o)
+			except OSError:
+				pass
 	def need_clean(self, dep):
-		return os.path.isfile(dep.buildname)
+		return any([os.path.isfile(o) for o in dep.outputs])
 
 class builder_alwaysuptodate(builder):
 	def setuptarget(self, dep, cfg):
 		if bs.verbose:
 			print('setuptarget: ' + dep.name + ' with builder ' + str(type(self)))
-		dep.buildname = os.path.normpath(dep.name) # This is not an intermediate file, do not prepend cfg.outdir...
-		if not dep.buildname.endswith(self.out_ext):
-			dep.buildname += self.out_ext
+		output = os.path.normpath(dep.name) # This is not an intermediate file, do not prepend cfg.outdir...
+		if not output.endswith(self.out_ext):
+			output = output + self.out_ext
+		dep.outputs = [output]
+		if bs.verbose:
+			print('  outputs: ' + ','.join(dep.outputs))
 	def up_to_date(self, dep):
 		return True
 	def need_clean(self, dep):
@@ -52,16 +60,23 @@ class command_builder(builder):
 		self.toolchain = toolchain
 
 	def supports(self, dep):
-		return all([d.buildname.endswith(self.in_exts) for d in dep.deps])
+		return all([d.outputs[0].endswith(self.in_exts) for d in dep.deps])
 
 	def up_to_date(self, dep):
-		if os.path.isfile(dep.buildname):
-			target_timestamp = os.path.getmtime(dep.buildname)
-			return all([os.path.isfile(d.buildname) and os.path.getmtime(d.buildname) <= target_timestamp for d in dep.deps])
-		return False
+		for o in dep.outputs:
+			if not os.path.isfile(o):
+				if bs.verbose:
+					print(dep.name + ' is not up-to-date because ' + o + ' is not a file')
+				return False
+			target_timestamp = os.path.getmtime(o)
+			if not all([all([os.path.getmtime(do) <= target_timestamp for do in d.outputs]) for d in dep.deps]):
+				if bs.verbose:
+					print(dep.name + ' is not up-to-date because one of its dependency is not up-to-date')
+				return False
+		return True
 
 	def call_build_command(self, cmd, dep):
 		if bs.verbose:
 			print(subprocess.list2cmdline(cmd))
-		completedprocess = subprocess.run(cmd, env = self.toolchain.env())
-		return completedprocess.returncode == 0
+		completedprocess = subprocess.run(cmd, stdout = subprocess.PIPE, stderr = subprocess.PIPE, env = self.toolchain.env())
+		return completedprocess

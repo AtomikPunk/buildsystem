@@ -49,9 +49,21 @@ class builder_cpp2obj(bu.command_builder):
 		self.out_ext = '.obj'
 		self.in_exts = ('.cpp', '.cc')
 
+	def setuptarget(self, dep, cfg):
+		if bs.verbose:
+			print('setuptarget: ' + dep.name + ' with builder ' + str(type(self)))
+		output = os.path.normpath(os.path.join(cfg.outdir, dep.name))
+		if output.endswith(self.out_ext):
+			output = output[:-len(self.out_ext)]
+		dep.outputs = [
+			output + '.obj',
+			]
+		if bs.verbose:
+			print('  outputs: ' + ','.join(dep.outputs))
+
 	def build(self, dep, opts = None):
-		os.makedirs(os.path.dirname(dep.buildname), exist_ok=True)
-		cmd = [self.toolchain.compiler_path(), '/nologo', '/Fo' + dep.buildname, '/c', [d.buildname for d in dep.deps]]
+		os.makedirs(os.path.dirname(dep.outputs[0]), exist_ok=True)
+		cmd = [self.toolchain.compiler_path(), '/nologo', '/Fo' + dep.outputs[0], '/c', [d.outputs[0] for d in dep.deps]]
 		incdirs = set()
 		if isinstance(self.options, (bs.options,)):
 			incdirs.update(self.opts.incdirs)
@@ -68,7 +80,16 @@ class builder_cpp2obj(bu.command_builder):
 		if isinstance(opts, (bs.options,)):
 			cflags.update(opts.cflags)
 		cmd.extend(cflags)
-		return self.call_build_command(cmd, dep)
+		p = super().call_build_command(cmd, dep)
+		for l in p.stdout.decode('utf-8').splitlines():
+			if ('): ') in l:
+				print(p.stdout.decode('utf-8'))
+				break
+		for l in p.stderr.decode('utf-8').splitlines():
+			if ('): ') in l:
+				print(p.stderr.decode('utf-8'))
+				break
+		return p.returncode == 0
 
 class builder_linkable(bu.command_builder):
 	def __init__(self, toolchain, opts = None):
@@ -76,7 +97,7 @@ class builder_linkable(bu.command_builder):
 		self.in_exts = ('.obj', '.lib')
 	
 	def call_build_command(self, cmd, dep, opts = None):
-		cmd.extend([d.buildname for d in dep.deps])
+		cmd.extend([d.outputs[0] for d in dep.deps])
 		lflags = set()
 		if isinstance(self.options, (bs.options,)):
 			lflags.update(self.options.lflags)
@@ -85,75 +106,84 @@ class builder_linkable(bu.command_builder):
 		if isinstance(opts, (bs.options,)):
 			lflags.update(opts.lflags)
 		cmd.extend(lflags)
-		return super().call_build_command(cmd, dep)
+		p = super().call_build_command(cmd, dep)
+		for l in p.stdout.decode('utf-8').splitlines():
+			if ('): ') in l:
+				print(p.stdout.decode('utf-8'))
+				break
+		for l in p.stderr.decode('utf-8').splitlines():
+			if ('): ') in l:
+				print(p.stderr.decode('utf-8'))
+				break
+		return p.returncode == 0
 			
 class builder_exe(builder_linkable):
 	def __init__(self, toolchain, opts = None):
 		super().__init__(toolchain, opts = opts)
 		self.out_ext = '.exe'
+
+	def setuptarget(self, dep, cfg):
+		if bs.verbose:
+			print('setuptarget: ' + dep.name + ' with builder ' + str(type(self)))
+		output = os.path.normpath(os.path.join(cfg.outdir, dep.name))
+		if output.endswith(self.out_ext):
+			output = output[:-len(self.out_ext)]
+		dep.outputs = [
+			output + '.exe',
+#			output + '.lib',
+#			output + '.exp',
+			]
+		if bs.verbose:
+			print('  outputs: ' + ','.join(dep.outputs))
 		
 	def build(self, dep, opts = None):
-		os.makedirs(os.path.dirname(dep.buildname), exist_ok=True)
-		cmd = [self.toolchain.linker_path(), '/nologo', '/out:' + dep.buildname]
+		os.makedirs(os.path.dirname(dep.outputs[0]), exist_ok=True)
+		cmd = [self.toolchain.linker_path(), '/nologo', '/out:' + dep.outputs[0]]
 		return self.call_build_command(cmd, dep, opts = opts)
-
-	def clean(self, dep):
-		super().clean(dep)
-		deppath = os.path.normpath(os.path.join(self.toolchain.config.outdir,dep.name))
-		if bs.verbose:
-			print('Removing ' + deppath + '.exp' + ' (' + dep.name + ')')
-			print('Removing ' + deppath + '.lib' + ' (' + dep.name + ')')
-		
-		try:
-			os.remove(deppath + '.exp')
-		except OSError:
-			pass
-		try:
-			os.remove(deppath + '.lib')
-		except OSError:
-			pass
-
-	def need_clean(self, dep):
-		deppath = os.path.normpath(os.path.join(self.toolchain.config.outdir,dep.name))
-		return os.path.isfile(dep.buildname) or os.path.isfile(deppath + '.exp') or os.path.isfile(deppath + '.lib')
 
 class builder_stlib(builder_linkable):
 	def __init__(self, toolchain, opts = None):
 		super().__init__(toolchain, opts = opts)
 		self.out_ext = '.lib'
+
+	def setuptarget(self, dep, cfg):
+		if bs.verbose:
+			print('setuptarget: ' + dep.name + ' with builder ' + str(type(self)))
+		output = os.path.normpath(os.path.join(cfg.outdir, dep.name))
+		if output.endswith(self.out_ext):
+			output = output[:-len(self.out_ext)]
+		dep.outputs = [
+			output + '.lib',
+#			output + '.exp',
+			]
+		if bs.verbose:
+			print('  outputs: ' + ','.join(dep.outputs))
 		
 	def build(self, dep, opts = None):
-		os.makedirs(os.path.dirname(dep.buildname), exist_ok=True)
-		cmd = [self.toolchain.librarian_path(), '/nologo', '/out:' + dep.buildname]
+		os.makedirs(os.path.dirname(dep.outputs[0]), exist_ok=True)
+		cmd = [self.toolchain.librarian_path(), '/nologo', '/out:' + dep.outputs[0]]
 		return self.call_build_command(cmd, dep, opts = opts)
 
 class builder_shlib(builder_linkable):
 	def __init__(self, toolchain, opts = None):
 		super().__init__(toolchain, opts = opts)
 		self.out_ext = '.lib'
+
+	def setuptarget(self, dep, cfg):
+		if bs.verbose:
+			print('setuptarget: ' + dep.name + ' with builder ' + str(type(self)))
+		output = os.path.normpath(os.path.join(cfg.outdir, dep.name))
+		if output.endswith(self.out_ext):
+			output = output[:-len(self.out_ext)]
+		dep.outputs = [
+			output + '.lib',
+			output + '.dll',
+			output + '.exp',
+			]
+		if bs.verbose:
+			print('  outputs: ' + ','.join(dep.outputs))
 		
 	def build(self, dep, opts = None):
-		dllpath = os.path.normpath(os.path.join(self.toolchain.config.outdir,dep.name + '.dll'))
-		os.makedirs(os.path.dirname(dllpath), exist_ok=True)
-		cmd = [self.toolchain.linker_path(), '/nologo', '/dll', '/out:' + dllpath]
+		os.makedirs(os.path.dirname(dep.outputs[0]), exist_ok=True)
+		cmd = [self.toolchain.linker_path(), '/nologo', '/dll', '/out:' + dep.outputs[1]]
 		return self.call_build_command(cmd, dep, opts = opts)
-
-	def clean(self, dep):
-		super().clean(dep)
-		deppath = os.path.normpath(os.path.join(self.toolchain.config.outdir,dep.name))
-		if bs.verbose:
-			print('Removing ' + deppath + '.dll' + ' (' + dep.name + ')')
-			print('Removing ' + deppath + '.exp' + ' (' + dep.name + ')')
-		
-		try:
-			os.remove(deppath + '.dll')
-		except OSError:
-			pass
-		try:
-			os.remove(deppath + '.exp')
-		except OSError:
-			pass
-
-	def need_clean(self, dep):
-		deppath = os.path.normpath(os.path.join(self.toolchain.config.outdir,dep.name))
-		return os.path.isfile(dep.buildname) or os.path.isfile(deppath + '.dll') or os.path.isfile(deppath + '.exp')
