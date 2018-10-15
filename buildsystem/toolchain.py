@@ -21,9 +21,9 @@ class toolchain(object):
 		self.options = opts
 		self.config = cfg
 
-	def build(self, dep):
+	def build(self, dep, opts = None):
 		for d in dep.deps:
-			self.build(d)
+			self.build(d, opts = self.options or bs.options() + dep.options + opts or bs.options())
 		if type(dep) in self.builders.keys():
 			builders = self.builders[type(dep)]
 			built = False
@@ -31,7 +31,7 @@ class toolchain(object):
 				if b.supports(dep):
 					b.setuptarget(dep, self.config)
 					if not b.up_to_date(dep):
-						success = b.build(dep, opts = self.options)
+						success = b.build(dep, opts = self.options or bs.options() + dep.options + opts or bs.options())
 						if success:
 							print('[' + cc().green + 'b' + cc().reset + '] ' + ','.join(dep.outputs))
 						else:

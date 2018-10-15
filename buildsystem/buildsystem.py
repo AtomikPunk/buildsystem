@@ -12,6 +12,39 @@ class options(object):
 		self.incdirs = incdirs
 		self.intincdirs = intincdirs
 
+	def __add__(self, other):
+		if not other:
+			other = options()
+		cflags = self.cflags.copy()
+		lflags = self.lflags.copy()
+		defines = self.defines.copy()
+		incdirs = self.incdirs.copy()
+		intincdirs = self.intincdirs.copy()
+		cflags.update(other.cflags)
+		lflags.update(other.lflags)
+		defines.update(other.defines)
+		incdirs.update(other.incdirs)
+		intincdirs.update(other.intincdirs)
+		return options(
+			cflags = cflags,
+			lflags = lflags,
+			defines = defines,
+			incdirs = incdirs,
+			intincdirs = intincdirs,
+			)
+
+	def print(self):
+		if self.cflags:
+			print('cflags: ' + ','.join(self.cflags))
+		if self.lflags:
+			print('lflags: ' + ','.join(self.lflags))
+		if self.defines:
+			print('defines: ' + ','.join(self.defines))
+		if self.incdirs:
+			print('incdirs: ' + ','.join(self.incdirs))
+		if self.intincdirs:
+			print('intincdirs: ' + ','.join(self.intincdirs))
+
 class node(object):
 	def __init__(self, value = None, out_edges = []):
 		self.value = value
