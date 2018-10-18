@@ -17,5 +17,7 @@ class toolchain(vc.toolchain):
 		env['LIB'] += os.pathsep + r'C:\Program Files (x86)\Windows Kits\10\lib\10.0.10240.0\ucrt\x64'
 		env.setdefault('INCLUDE','')
 		env['INCLUDE'] += os.pathsep + self.toolchain_path() + r'\VC\INCLUDE'
+		env['INCLUDE'] += os.pathsep + r'C:\Program Files (x86)\Windows Kits\8.1\Include\shared'
+		env['INCLUDE'] += os.pathsep + r'C:\Program Files (x86)\Windows Kits\8.1\Include\um'
 		env['INCLUDE'] += os.pathsep + r'C:\Program Files (x86)\Windows Kits\10\Include\10.0.10240.0\ucrt'
 		return env

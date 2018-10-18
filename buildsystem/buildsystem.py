@@ -5,7 +5,7 @@ import os
 verbose = False
 
 class options(object):
-	def __init__(self, cflags = set(), lflags = set(), defines = set(), incdirs = set(), intincdirs = set()):
+	def __init__(self, cflags = set(), lflags = set(), defines = {}, incdirs = set(), intincdirs = set()):
 		self.cflags = cflags
 		self.lflags = lflags
 		self.defines = defines

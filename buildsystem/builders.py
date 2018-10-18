@@ -63,17 +63,21 @@ class command_builder(builder):
 		return all([d.outputs[0].endswith(self.in_exts) for d in dep.deps])
 
 	def up_to_date(self, dep):
-		for o in dep.outputs:
-			if not os.path.isfile(o):
-				if bs.verbose:
-					print(dep.name + ' is not up-to-date because ' + o + ' is not a file')
-				return False
-			target_timestamp = os.path.getmtime(o)
-			if not all([all([os.path.getmtime(do) <= target_timestamp for do in d.outputs]) for d in dep.deps]):
-				if bs.verbose:
-					print(dep.name + ' is not up-to-date because one of its dependency is not up-to-date')
-				return False
-		return True
+		try:
+			for o in dep.outputs:
+				if not os.path.isfile(o):
+					if bs.verbose:
+						print(dep.name + ' is not up-to-date because ' + o + ' is not a file')
+					return False
+				target_timestamp = os.path.getmtime(o)
+				if not all([all([os.path.getmtime(do) <= target_timestamp for do in d.outputs]) for d in dep.deps]):
+					if bs.verbose:
+						print(dep.name + ' is not up-to-date because one of its dependency is not up-to-date')
+					return False
+			return True
+		except FileNotFoundError as e:
+			print(str(e))
+			return False
 
 	def call_build_command(self, cmd, dep):
 		if bs.verbose:
