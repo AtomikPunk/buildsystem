@@ -89,14 +89,7 @@ class builder_cpp2obj(bu.command_builder):
 			cflags.update(opts.cflags)
 		cmd.extend(cflags)
 		p = super().call_build_command(cmd, dep)
-		for l in p.stdout.decode('utf-8').splitlines():
-			if any(x in l for x in ('): ', ') : ')):
-				print(p.stdout.decode('utf-8'))
-				break
-		for l in p.stderr.decode('utf-8').splitlines():
-			if any(x in l for x in ('): ', ') : ')):
-				print(p.stderr.decode('utf-8'))
-				break
+		self.printerrors(p)
 		return p.returncode == 0
 
 class builder_linkable(bu.command_builder):
@@ -115,14 +108,7 @@ class builder_linkable(bu.command_builder):
 			lflags.update(opts.lflags)
 		cmd.extend(lflags)
 		p = super().call_build_command(cmd, dep)
-		for l in p.stdout.decode('utf-8').splitlines():
-			if any(x in l for x in ('): ', ') : ')):
-				print(p.stdout.decode('utf-8'))
-				break
-		for l in p.stderr.decode('utf-8').splitlines():
-			if any(x in l for x in ('): ', ') : ')):
-				print(p.stderr.decode('utf-8'))
-				break
+		self.printerrors(p)
 		return p.returncode == 0
 			
 class builder_exe(builder_linkable):

@@ -84,3 +84,11 @@ class command_builder(builder):
 			print(subprocess.list2cmdline(cmd))
 		completedprocess = subprocess.run(cmd, stdout = subprocess.PIPE, stderr = subprocess.PIPE, env = self.toolchain.env())
 		return completedprocess
+
+	def printerrors(self, completedprocess):
+		for l in completedprocess.stdout.decode('utf-8').splitlines():
+			if ':' in l:
+				print(l)
+		for l in completedprocess.stderr.decode('utf-8').splitlines():
+			if ':' in l:
+				print(l)
