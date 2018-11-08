@@ -7,23 +7,28 @@ class config(object):
 		self.outdir = outdir
 
 class toolchain(object):
-	def __init__(self, builders = {}, opts = None, cfg = None):
+	def __init__(self, builders = {}, opts = bs.options(), cfg = config()):
 		super().__init__()
 		self.builders = {
-			bs.source: [bu.builder_alwaysuptodate()],
-			bs.compiled: [bu.builder()],
-			bs.executable: [bu.builder()],
-			bs.sharedlib: [bu.builder()],
-			bs.staticlib: [bu.builder()],
-			bs.project: [bu.builder_alwaysuptodate()],
+			bs.source: [bu.builder_alwaysuptodate(self)],
+			bs.compiled: [bu.builder(self)],
+			bs.executable: [bu.builder(self)],
+			bs.sharedlib: [bu.builder(self)],
+			bs.staticlib: [bu.builder(self)],
+			bs.project: [bu.builder(self)],
+			bs.importlib: [bu.builder_alwaysuptodate(self)],
 			}
 		self.builders.update(builders)
 		self.options = opts
 		self.config = cfg
 
-	def build(self, dep, opts = None):
+	def build(self, dep, opts = bs.options()):
+		options = self.options + dep.options + opts
+		inheritedoptions = bs.options()
 		for d in dep.deps:
-			self.build(d, opts = self.options or bs.options() + dep.options + opts or bs.options())
+			self.build(d, opts = options)
+			inheritedoptions += d.options
+		dep.inheritedoptions = inheritedoptions
 		if type(dep) in self.builders.keys():
 			builders = self.builders[type(dep)]
 			built = False
@@ -31,13 +36,13 @@ class toolchain(object):
 				if b.supports(dep):
 					b.setuptarget(dep, self.config)
 					if not b.up_to_date(dep):
-						success = b.build(dep, opts = self.options or bs.options() + dep.options + opts or bs.options())
+						success = b.build(dep, opts = options)
 						if success:
 							print('[' + cc().green + 'b' + cc().reset + '] ' + ','.join(dep.outputs))
 						else:
 							print('[' + cc().red + 'f' + cc().reset + '] ' + ','.join(dep.outputs))
-					elif bs.verbose:
-						print('[-] ' + ','.join(dep.outputs))
+					#elif bs.verbose:
+						#print('[-] ' + ','.join(dep.outputs))
 					built = True
 					break
 			if not built:

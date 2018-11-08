@@ -1,37 +1,27 @@
 from enum import Enum
 
+import copy
 import os
 
 verbose = False
 
 class options(object):
-	def __init__(self, cflags = set(), lflags = set(), defines = {}, incdirs = set(), intincdirs = set()):
+	def __init__(self, cflags = set(), lflags = set(), defines = {}, incdirs = set(), libdirs = set()):
 		self.cflags = cflags
 		self.lflags = lflags
 		self.defines = defines
 		self.incdirs = incdirs
-		self.intincdirs = intincdirs
-
+		self.libdirs = libdirs
+	
 	def __add__(self, other):
-		if not other:
-			other = options()
-		cflags = self.cflags.copy()
-		lflags = self.lflags.copy()
-		defines = self.defines.copy()
-		incdirs = self.incdirs.copy()
-		intincdirs = self.intincdirs.copy()
-		cflags.update(other.cflags)
-		lflags.update(other.lflags)
-		defines.update(other.defines)
-		incdirs.update(other.incdirs)
-		intincdirs.update(other.intincdirs)
-		return options(
-			cflags = cflags,
-			lflags = lflags,
-			defines = defines,
-			incdirs = incdirs,
-			intincdirs = intincdirs,
-			)
+		opts = copy.copy(self)
+		if isinstance(other, options):
+			opts.cflags.update(other.cflags)
+			opts.lflags.update(other.lflags)
+			opts.defines.update(other.defines)
+			opts.incdirs.update(other.incdirs)
+			opts.libdirs.update(other.libdirs)
+		return opts
 
 	def print(self):
 		if self.cflags:
@@ -42,8 +32,8 @@ class options(object):
 			print('defines: ' + ','.join(self.defines))
 		if self.incdirs:
 			print('incdirs: ' + ','.join(self.incdirs))
-		if self.intincdirs:
-			print('intincdirs: ' + ','.join(self.intincdirs))
+		if self.libdirs:
+			print('libdirs: ' + ','.join(self.libdirs))
 
 class node(object):
 	def __init__(self, value = None, out_edges = []):
@@ -51,10 +41,11 @@ class node(object):
 		self.out_edges = out_edges
 		
 class dependency(node):
-	def __init__(self, name = None, deps = [], opts = None):
+	def __init__(self, name = None, deps = [], opts = options(), privopts = options()):
 		super().__init__(value = name, out_edges = deps)
 		self.options = opts
-		self.outputs = [name]
+		self.privateoptions = privopts
+		self.outputs = []
 		
 	@property
 	def name(self):
@@ -80,7 +71,7 @@ class source(dependency):
 		super().__init__(name = name)
 
 class compiled(dependency):
-	def __init__(self, src = None, name = None, opts = None):
+	def __init__(self, src = None, name = None, opts = options(), privopts = options()):
 		if not name and isinstance(src, (str,)):
 			(filename, ext) = os.path.splitext(src)
 			if ext:
@@ -89,12 +80,12 @@ class compiled(dependency):
 				name = src
 				
 		if isinstance(src, str):
-			super().__init__(name = name, deps = [source(src)], opts = opts)
+			super().__init__(name = name, deps = [source(src)], opts = opts, privopts = privopts)
 		else:
-			super().__init__(name = name, deps = src, opts = opts)
+			super().__init__(name = name, deps = src, opts = opts, privopts = privopts)
 		
 class linkable(dependency):
-	def __init__(self, name = None, deps = [], srcs = [], opts = None):
+	def __init__(self, name = None, deps = [], srcs = [], opts = options()):
 		srcdeps = []
 		if isinstance(srcs, list):
 			for s in srcs:
@@ -115,3 +106,16 @@ class staticlib(linkable):
 		
 class project(dependency):
 	pass
+
+class importlib(linkable):
+	def __init__(self, name = None, deps = [], libs = set(), opts = options(), mods = {}):
+		super().__init__(name = name, deps = deps, opts = opts)
+		self.libs = libs
+		self.modules = mods
+		
+	def withmods(self, modnames = set()):
+		result = copy.copy(self)
+		mods = [result.modules[n] for n in modnames if n in result.modules]
+		result.deps = mods
+		return result
+		

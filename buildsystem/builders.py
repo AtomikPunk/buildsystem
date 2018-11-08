@@ -6,7 +6,7 @@ import subprocess
 import io
 
 class builder(object):
-	def __init__(self, opts = None):
+	def __init__(self, toolchain, opts = None):
 		self.options = opts
 		self.in_exts = ()
 		self.out_ext = ''
@@ -14,14 +14,14 @@ class builder(object):
 		OK = 0
 		ERROR = 1
 	def setuptarget(self, dep, cfg):
-		if bs.verbose:
-			print('setuptarget: ' + dep.name + ' with builder ' + str(type(self)))
+		#if bs.verbose:
+			#print('setuptarget: ' + dep.name + ' with builder ' + str(type(self)))
 		output = os.path.join(cfg.outdir, os.path.normpath(dep.name))
 		if not output.endswith(self.out_ext):
 			output = output + self.out_ext
 		dep.outputs = [output]
-		if bs.verbose:
-			print('  outputs: ' + ','.join(dep.outputs))
+		#if bs.verbose:
+			#print('  outputs: ' + ','.join(dep.outputs))
 	def supports(self, dep):
 		return True
 	def build(self, dep, opts = None):
@@ -41,14 +41,14 @@ class builder(object):
 
 class builder_alwaysuptodate(builder):
 	def setuptarget(self, dep, cfg):
-		if bs.verbose:
-			print('setuptarget: ' + dep.name + ' with builder ' + str(type(self)))
+		#if bs.verbose:
+			#print('setuptarget: ' + dep.name + ' with builder ' + str(type(self)))
 		output = os.path.normpath(dep.name) # This is not an intermediate file, do not prepend cfg.outdir...
 		if not output.endswith(self.out_ext):
 			output = output + self.out_ext
 		dep.outputs = [output]
-		if bs.verbose:
-			print('  outputs: ' + ','.join(dep.outputs))
+		#if bs.verbose:
+			#print('  outputs: ' + ','.join(dep.outputs))
 	def up_to_date(self, dep):
 		return True
 	def need_clean(self, dep):
@@ -56,11 +56,8 @@ class builder_alwaysuptodate(builder):
 
 class command_builder(builder):
 	def __init__(self, toolchain, opts = None):
-		super().__init__(opts = opts)
+		super().__init__(toolchain, opts = opts)
 		self.toolchain = toolchain
-
-	def supports(self, dep):
-		return all([d.outputs[0].endswith(self.in_exts) for d in dep.deps])
 
 	def up_to_date(self, dep):
 		try:
