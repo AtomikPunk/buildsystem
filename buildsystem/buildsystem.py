@@ -2,8 +2,59 @@ from enum import Enum
 
 import copy
 import os
+from buildsystem.consolecolors import consolecolors as cc
 
 verbose = False
+
+class readspecargs(object):
+	def __init__(self, file):
+		self.file = file
+
+class execspecargs(object):
+	def __init__(self, spec, tasks, toolchain, verbose = False, enablecolors = False):
+		self.spec = spec
+		self.tasks = tasks
+		self.toolchain = toolchain
+		self.verbose = verbose
+		self.enablecolors = enablecolors
+
+		if isinstance(tasks, str):
+			self.tasks = [t for t in tasks.strip().split(',')]
+
+def readspec(readspecargs):
+	s = None
+	try:
+		import importlib.util
+		import importlib.machinery
+		importlib.machinery.SOURCE_SUFFIXES.append('') # Allow any file extension
+		spec = importlib.util.spec_from_file_location('buildscript', readspecargs.file)
+		mod = importlib.util.module_from_spec(spec)
+		importlib.machinery.SOURCE_SUFFIXES.pop() # Revert to known file extensions
+
+		spec.loader.exec_module(mod)
+		if not hasattr(mod, 'spec'):
+			raise RuntimeError('build script must define spec')
+
+		s = mod.spec
+
+	except Exception as e:
+		print('Error: could not load build script ' + readspecargs.file + ' : ' + str(e))
+
+	return s
+
+def execspec(execspecargs):
+	verbose = execspecargs.verbose
+	cc.enable = execspecargs.enablecolors
+
+	# print('\n'.join([str(b) for b in vc.builders]))
+
+	for t in execspecargs.tasks:
+		op = getattr(execspecargs.toolchain, t, None)
+		if callable(op):
+			print('Task: ' + t)
+			op(execspecargs.spec)
+		else:
+			print('Warning: unsupported task ' + t)
 
 class options(object):
 	def __init__(self, cflags = set(), lflags = set(), defines = {}, incdirs = set(), libdirs = set()):
