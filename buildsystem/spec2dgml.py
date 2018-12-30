@@ -5,7 +5,7 @@ def longname(dep):
 	return dep.name+'['+dep.__class__.__name__+']'
 
 def getdepnode(dep):
-	return {'Label': longname(dep), 'Category': dep.__class__.__name__}
+	return {'Label': dep.name, 'Category': dep.__class__.__name__}
 
 def getdepnodes(dep):
 	n = {longname(dep): getdepnode(dep)}
@@ -22,8 +22,20 @@ def getdeplinks(dep):
 		l.extend(getdeplinks(d))
 	return l
 
+def getcategories():
+	c = {
+		'source': {'Background': 'White'},
+		'compiled': {'Background': 'LightGray'},
+		'executable': {'Background': 'LightGreen'},
+		'sharedlib': {'Background': 'LightBlue'},
+		'staticlib': {'Background': 'LightCyan'},
+		'project': {'Background': 'LightYellow'},
+		}
+	return c
+
 def spec2dgml(dep):
 	g = dgml.DirectedGraph()
 	g.nodes = getdepnodes(dep)
 	g.links = getdeplinks(dep)
+	g.categories = getcategories()
 	return g
