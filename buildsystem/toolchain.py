@@ -51,6 +51,8 @@ class toolchain(object):
 			print('warning: could not find builder for type ' + str(type(dep)))
 			
 	def clean(self, dep):
+		if isinstance(dep, set):
+			dep = dep
 		for d in dep.deps:
 			self.clean(d)
 		if type(dep) in self.builders.keys():
@@ -73,3 +75,60 @@ class toolchain(object):
 
 	def showdeps(self, dep):
 		dep.showdeps()
+
+	def mergeoptions(self, dep, additionaloptions = None):
+		effectiveoptions = bs.options()
+
+		# Compilation
+		# Defines
+		if isinstance(self.options, (bs.options,)):
+			effectiveoptions.defines.update(self.options.defines)
+		if isinstance(dep.options, (bs.options,)):
+			effectiveoptions.defines.update(dep.options.defines)
+		if isinstance(additionaloptions, (bs.options,)):
+			effectiveoptions.defines.update(additionaloptions.defines)
+
+		# Include dirs
+		if isinstance(self.options, (bs.options,)):
+			effectiveoptions.incdirs.update(self.options.incdirs)
+		if isinstance(dep.options, (bs.options,)):
+			effectiveoptions.incdirs.update(dep.options.incdirs)
+		if isinstance(dep.privateoptions, (bs.options,)):
+			effectiveoptions.incdirs.update(dep.privateoptions.incdirs)
+		if isinstance(dep.inheritedoptions, (bs.options,)):
+			effectiveoptions.incdirs.update(dep.inheritedoptions.incdirs)
+		if isinstance(additionaloptions, (bs.options,)):
+			effectiveoptions.incdirs.update(additionaloptions.incdirs)
+
+		# Cflags
+		if isinstance(self.options, (bs.options,)):
+			effectiveoptions.cflags.update(self.options.cflags)
+		if isinstance(dep.options, (bs.options,)):
+			effectiveoptions.cflags.update(dep.options.cflags)
+		if isinstance(dep.privateoptions, (bs.options,)):
+			effectiveoptions.cflags.update(dep.privateoptions.cflags)
+		if isinstance(additionaloptions, (bs.options,)):
+			effectiveoptions.cflags.update(additionaloptions.cflags)
+
+		# Linking
+		# Libdirs
+		if isinstance(self.options, (bs.options,)):
+			effectiveoptions.libdirs.update(self.options.libdirs)
+		if isinstance(dep.options, (bs.options,)):
+			effectiveoptions.libdirs.update(dep.options.libdirs)
+		if isinstance(dep.inheritedoptions, (bs.options,)):
+			effectiveoptions.libdirs.update(dep.inheritedoptions.libdirs)
+		if isinstance(additionaloptions, (bs.options,)):
+			effectiveoptions.libdirs.update(additionaloptions.libdirs)
+
+		# Lflags
+		if isinstance(self.options, (bs.options,)):
+			effectiveoptions.lflags.update(self.options.lflags)
+		if isinstance(dep.options, (bs.options,)):
+			effectiveoptions.lflags.update(dep.options.lflags)
+		if isinstance(dep.inheritedoptions, (bs.options,)):
+			effectiveoptions.lflags.update(dep.inheritedoptions.lflags)
+		if isinstance(additionaloptions, (bs.options,)):
+			effectiveoptions.lflags.update(additionaloptions.lflags)
+
+		return effectiveoptions

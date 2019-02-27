@@ -64,37 +64,11 @@ class builder_cpp2obj(bu.command_builder):
 
 	def build(self, dep, opts = None):
 		os.makedirs(os.path.dirname(dep.outputs[0]), exist_ok=True)
+		effectiveoptions = self.toolchain.mergeoptions(dep, opts)
 		cmd = [self.toolchain.compiler_path(), '/nologo', '/Fo' + dep.outputs[0]]
-		defines = {}
-		if isinstance(self.options, (bs.options,)):
-			defines.update(self.opts.defines)
-		if isinstance(dep.options, (bs.options,)):
-			defines.update(dep.options.defines)
-		if isinstance(opts, (bs.options,)):
-			defines.update(opts.defines)
-		cmd.extend(['/D' + d + ('=' + str(v) if v else '') for d,v in defines.items()])
-		incdirs = set()
-		if isinstance(self.options, (bs.options,)):
-			incdirs.update(self.opts.incdirs)
-		if isinstance(dep.options, (bs.options,)):
-			incdirs.update(dep.options.incdirs)
-		if isinstance(dep.privateoptions, (bs.options,)):
-			incdirs.update(dep.privateoptions.incdirs)
-		if isinstance(dep.inheritedoptions, (bs.options,)):
-			incdirs.update(dep.inheritedoptions.incdirs)
-		if isinstance(opts, (bs.options,)):
-			incdirs.update(opts.incdirs)
-		cmd.extend(['/I' + i for i in incdirs])
-		cflags = set()
-		if isinstance(self.options, (bs.options,)):
-			cflags.update(self.opts.cflags)
-		if isinstance(dep.options, (bs.options,)):
-			cflags.update(dep.options.cflags)
-		if isinstance(dep.privateoptions, (bs.options,)):
-			cflags.update(dep.privateoptions.cflags)
-		if isinstance(opts, (bs.options,)):
-			cflags.update(opts.cflags)
-		cmd.extend(cflags)
+		cmd.extend(['/D' + d + ('=' + str(v) if v else '') for d,v in effectiveoptions.defines.items()])
+		cmd.extend(['/I' + i for i in effectiveoptions.incdirs])
+		cmd.extend(effectiveoptions.cflags)
 		cmd.extend(['/c'])
 		cmd.extend([d.outputs[0] for d in dep.deps if d.outputs])
 		p = super().call_build_command(cmd, dep)
@@ -107,26 +81,9 @@ class builder_linkable(bu.command_builder):
 		self.in_exts = ('.obj', '.lib')
 	
 	def call_build_command(self, cmd, dep, opts = None):
-		libdirs = set()
-		if isinstance(self.options, (bs.options,)):
-			libdirs.update(self.opts.libdirs)
-		if isinstance(dep.options, (bs.options,)):
-			libdirs.update(dep.options.libdirs)
-		if isinstance(dep.inheritedoptions, (bs.options,)):
-			libdirs.update(dep.inheritedoptions.libdirs)
-		if isinstance(opts, (bs.options,)):
-			libdirs.update(opts.libdirs)
-		cmd.extend(['/LIBPATH:' + os.path.normpath(d) for d in libdirs])
-		lflags = set()
-		if isinstance(self.options, (bs.options,)):
-			lflags.update(self.options.lflags)
-		if isinstance(dep.options, (bs.options,)):
-			lflags.update(dep.options.lflags)
-		if isinstance(dep.inheritedoptions, (bs.options,)):
-			lflags.update(dep.inheritedoptions.lflags)
-		if isinstance(opts, (bs.options,)):
-			lflags.update(opts.lflags)
-		cmd.extend(lflags)
+		effectiveoptions = self.toolchain.mergeoptions(dep, opts)
+		cmd.extend(['/LIBPATH:' + os.path.normpath(d) for d in effectiveoptions.libdirs])
+		cmd.extend(effectiveoptions.lflags)
 		cmd.extend([d.outputs[0] for d in dep.deps if d.outputs])
 		p = super().call_build_command(cmd, dep)
 		self.printerrors(p)

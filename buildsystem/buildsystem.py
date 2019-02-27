@@ -137,14 +137,14 @@ class compiled(dependency):
 		
 class linkable(dependency):
 	def __init__(self, name = None, deps = [], srcs = [], opts = options()):
-		srcdeps = []
+		srcdeps = set()
 		if isinstance(srcs, list):
 			for s in srcs:
 				srcdeps.append(compiled(src = s, opts = opts))
-		if isinstance(deps, list):
-			super().__init__(name = name, deps = deps + srcdeps, opts = opts)
+		if isinstance(deps, set):
+			super().__init__(name = name, deps = deps.union(srcdeps), opts = opts)
 		else:
-			super().__init__(name = name, deps = [deps] + srcdeps, opts = opts)
+			super().__init__(name = name, deps = set(deps).union(srcdeps), opts = opts)
 		
 class executable(linkable):
 	pass
