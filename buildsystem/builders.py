@@ -25,7 +25,7 @@ class builder(object):
 	def supports(self, dep):
 		return True
 	def build(self, dep, opts = None):
-		pass
+		return True
 	def up_to_date(self, dep):
 		return False
 	def clean(self, dep):
