@@ -172,9 +172,11 @@ class builder_imlib(bu.builder):
 		for o in outputs:
 			if o.endswith(self.out_ext):
 				o = o[:-len(self.out_ext)]
-			dep.outputs.append(o + '.lib')
-			dep.outputs.append(o + '.dll')
-		print(dep.name + ': ' + ','.join(outputs))
+			if o + '.lib' not in dep.outputs:
+				dep.outputs.append(o + '.lib')
+			if o + '.dll' not in dep.outputs:
+				dep.outputs.append(o + '.dll')
+		#print(dep.name + ': ' + ','.join(outputs))
 		#if bs.verbose:
 			#print('  outputs: ' + ','.join(dep.outputs))
 

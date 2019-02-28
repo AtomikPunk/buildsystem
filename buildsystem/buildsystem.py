@@ -147,6 +147,9 @@ class linkable(dependency):
 		if isinstance(srcs, list):
 			for s in srcs:
 				srcdeps.add(compiled(src = s, opts = opts))
+		if isinstance(srcs, set):
+			for s in list(srcs):
+				srcdeps.add(compiled(src = s, opts = opts))
 		if isinstance(deps, set):
 			super().__init__(name = name, deps = deps.union(srcdeps), opts = opts)
 		elif isinstance(deps, list):

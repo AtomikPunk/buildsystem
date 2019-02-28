@@ -23,12 +23,13 @@ class toolchain(object):
 		self.config = cfg
 
 	def build(self, dep, opts = bs.options()):
-		options = self.options + dep.options + opts
-		inheritedoptions = bs.options()
+		parentoptions = self.options + dep.options + opts
+		childrenoptions = bs.options()
 		for d in dep.deps:
-			self.build(d, opts = options)
-			inheritedoptions += d.options
-		dep.inheritedoptions = inheritedoptions
+			childrenoptions += d.options
+		for d in dep.deps:
+			self.build(d, opts = parentoptions + childrenoptions)
+		dep.inheritedoptions = childrenoptions
 		if type(dep) in self.builders.keys():
 			builders = self.builders[type(dep)]
 			built = False
@@ -36,11 +37,11 @@ class toolchain(object):
 				if b.supports(dep):
 					b.setuptarget(dep, self.config)
 					if not b.up_to_date(dep):
-						success = b.build(dep, opts = options)
+						success = b.build(dep, opts = parentoptions)
 						if success:
-							print('[' + cc().green + 'b' + cc().reset + '] ' + ','.join(dep.outputs))
+							print('[' + cc().green + 'b' + cc().reset + '] ' + dep.name + ': ' + ','.join(dep.outputs))
 						else:
-							print('[' + cc().red + 'f' + cc().reset + '] ' + ','.join(dep.outputs))
+							print('[' + cc().red + 'f' + cc().reset + '] ' + dep.name + ': ' + ','.join(dep.outputs))
 					#elif bs.verbose:
 						#print('[-] ' + ','.join(dep.outputs))
 					built = True
@@ -91,6 +92,9 @@ class toolchain(object):
 		# Include dirs
 		if isinstance(self.options, (bs.options,)):
 			effectiveoptions.incdirs.update(self.options.incdirs)
+		for d in dep.deps:
+			depoptions = self.mergeoptions(d)
+			effectiveoptions.incdirs.update(depoptions.incdirs)
 		if isinstance(dep.options, (bs.options,)):
 			effectiveoptions.incdirs.update(dep.options.incdirs)
 		if isinstance(dep.privateoptions, (bs.options,)):
