@@ -87,12 +87,15 @@ class options(object):
 			print('libdirs: ' + ','.join(self.libdirs))
 
 class node(object):
-	def __init__(self, value = None, out_edges = []):
+	def __init__(self, value = None, out_edges = {}):
 		self.value = value
-		self.out_edges = out_edges
+		if isinstance(out_edges, set):
+			self.out_edges = out_edges
+		else:
+			self.out_edges = set(out_edges)
 		
 class dependency(node):
-	def __init__(self, name = None, deps = [], opts = options(), privopts = options()):
+	def __init__(self, name = None, deps = set(), opts = options(), privopts = options()):
 		super().__init__(value = name, out_edges = deps)
 		self.options = opts
 		self.privateoptions = privopts
@@ -110,7 +113,10 @@ class dependency(node):
 		return self.out_edges
 	@deps.setter
 	def deps(self, deps):
-		self.out_edges = deps
+		if isinstance(deps, set):
+			self.out_edges = deps
+		else:
+			self.out_edges = set(deps)
 
 	def showdeps(self, lvl = 0):
 		print(' '*lvl + self.name + ' ' + str(self))
@@ -131,20 +137,22 @@ class compiled(dependency):
 				name = src
 				
 		if isinstance(src, str):
-			super().__init__(name = name, deps = [source(src)], opts = opts, privopts = privopts)
+			super().__init__(name = name, deps = {source(src)}, opts = opts, privopts = privopts)
 		else:
 			super().__init__(name = name, deps = src, opts = opts, privopts = privopts)
 		
 class linkable(dependency):
-	def __init__(self, name = None, deps = [], srcs = [], opts = options()):
+	def __init__(self, name = None, deps = set(), srcs = [], opts = options()):
 		srcdeps = set()
 		if isinstance(srcs, list):
 			for s in srcs:
-				srcdeps.append(compiled(src = s, opts = opts))
+				srcdeps.add(compiled(src = s, opts = opts))
 		if isinstance(deps, set):
 			super().__init__(name = name, deps = deps.union(srcdeps), opts = opts)
-		else:
+		elif isinstance(deps, list):
 			super().__init__(name = name, deps = set(deps).union(srcdeps), opts = opts)
+		else:
+			super().__init__(name = name, deps = {deps}.union(srcdeps), opts = opts)
 		
 class executable(linkable):
 	pass
@@ -159,7 +167,7 @@ class project(dependency):
 	pass
 
 class importlib(linkable):
-	def __init__(self, name = None, deps = [], libs = set(), opts = options(), mods = {}):
+	def __init__(self, name = None, deps = set(), libs = set(), opts = options(), mods = {}):
 		super().__init__(name = name, deps = deps, opts = opts)
 		self.libs = libs
 		self.modules = mods
