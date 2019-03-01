@@ -22,14 +22,12 @@ class toolchain(object):
 		self.options = opts
 		self.config = cfg
 
-	def build(self, dep, opts = bs.options()):
-		parentoptions = self.options + dep.options + opts
-		childrenoptions = bs.options()
+	def build(self, dep, parentoptions = bs.options(), additionaloptions = bs.options()):
 		for d in dep.deps:
-			childrenoptions += d.options
-		for d in dep.deps:
-			self.build(d, opts = parentoptions + childrenoptions)
-		dep.inheritedoptions = childrenoptions
+			thisparentoptions = parentoptions
+			thisparentoptions.merge(dep)
+			self.build(d, thisparentoptions, additionaloptions)
+		#dep.inheritedoptions = childrenoptions
 		if type(dep) in self.builders.keys():
 			builders = self.builders[type(dep)]
 			built = False
@@ -37,7 +35,7 @@ class toolchain(object):
 				if b.supports(dep):
 					b.setuptarget(dep, self.config)
 					if not b.up_to_date(dep):
-						success = b.build(dep, opts = parentoptions)
+						success = b.build(dep, parentoptions)
 						if success:
 							print('[' + cc().green + 'b' + cc().reset + '] ' + dep.name + ': ' + ','.join(dep.outputs))
 						else:
@@ -77,62 +75,17 @@ class toolchain(object):
 	def showdeps(self, dep):
 		dep.showdeps()
 
-	def mergeoptions(self, dep, additionaloptions = None):
+	def mergeoptions(self, dep, parentoptions, additionaloptions = None):
 		effectiveoptions = bs.options()
 
-		# Compilation
-		# Defines
-		if isinstance(self.options, (bs.options,)):
-			effectiveoptions.defines.update(self.options.defines)
-		if isinstance(dep.options, (bs.options,)):
-			effectiveoptions.defines.update(dep.options.defines)
-		if isinstance(additionaloptions, (bs.options,)):
-			effectiveoptions.defines.update(additionaloptions.defines)
-
-		# Include dirs
-		if isinstance(self.options, (bs.options,)):
-			effectiveoptions.incdirs.update(self.options.incdirs)
-		for d in dep.deps:
-			depoptions = self.mergeoptions(d)
-			effectiveoptions.incdirs.update(depoptions.incdirs)
-		if isinstance(dep.options, (bs.options,)):
-			effectiveoptions.incdirs.update(dep.options.incdirs)
-		if isinstance(dep.privateoptions, (bs.options,)):
-			effectiveoptions.incdirs.update(dep.privateoptions.incdirs)
-		if isinstance(dep.inheritedoptions, (bs.options,)):
-			effectiveoptions.incdirs.update(dep.inheritedoptions.incdirs)
-		if isinstance(additionaloptions, (bs.options,)):
-			effectiveoptions.incdirs.update(additionaloptions.incdirs)
-
-		# Cflags
-		if isinstance(self.options, (bs.options,)):
-			effectiveoptions.cflags.update(self.options.cflags)
-		if isinstance(dep.options, (bs.options,)):
-			effectiveoptions.cflags.update(dep.options.cflags)
-		if isinstance(dep.privateoptions, (bs.options,)):
-			effectiveoptions.cflags.update(dep.privateoptions.cflags)
-		if isinstance(additionaloptions, (bs.options,)):
-			effectiveoptions.cflags.update(additionaloptions.cflags)
-
-		# Linking
-		# Libdirs
-		if isinstance(self.options, (bs.options,)):
-			effectiveoptions.libdirs.update(self.options.libdirs)
-		if isinstance(dep.options, (bs.options,)):
-			effectiveoptions.libdirs.update(dep.options.libdirs)
-		if isinstance(dep.inheritedoptions, (bs.options,)):
-			effectiveoptions.libdirs.update(dep.inheritedoptions.libdirs)
-		if isinstance(additionaloptions, (bs.options,)):
-			effectiveoptions.libdirs.update(additionaloptions.libdirs)
-
-		# Lflags
-		if isinstance(self.options, (bs.options,)):
-			effectiveoptions.lflags.update(self.options.lflags)
-		if isinstance(dep.options, (bs.options,)):
-			effectiveoptions.lflags.update(dep.options.lflags)
-		if isinstance(dep.inheritedoptions, (bs.options,)):
-			effectiveoptions.lflags.update(dep.inheritedoptions.lflags)
-		if isinstance(additionaloptions, (bs.options,)):
-			effectiveoptions.lflags.update(additionaloptions.lflags)
+		for k,v in effectiveoptions.items():
+			effectiveoptions.updateifexist(k, self.options)
+			if 'inherited' in v.attributes:
+				effectiveoptions.updateifexist(k, parentoptions)
+			if 'propagated' in v.attributes:
+				for d in dep.deps:
+					effectiveoptions.updateifexist(k, self.mergeoptions(d, dep.options))
+			effectiveoptions.updateifexist(k, dep.options)
+			effectiveoptions.updateifexist(k, additionaloptions)
 
 		return effectiveoptions

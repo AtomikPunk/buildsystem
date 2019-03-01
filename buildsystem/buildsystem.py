@@ -56,35 +56,40 @@ def execspec(execspecargs):
 		else:
 			print('Warning: unsupported task ' + t)
 
-class options(object):
-	def __init__(self, cflags = set(), lflags = set(), defines = {}, incdirs = set(), libdirs = set()):
-		self.cflags = cflags
-		self.lflags = lflags
-		self.defines = defines
-		self.incdirs = incdirs
-		self.libdirs = libdirs
-	
-	def __add__(self, other):
-		opts = copy.copy(self)
-		if isinstance(other, options):
-			opts.cflags.update(other.cflags)
-			opts.lflags.update(other.lflags)
-			opts.defines.update(other.defines)
-			opts.incdirs.update(other.incdirs)
-			opts.libdirs.update(other.libdirs)
-		return opts
+class option(object):
+	def __init__(self, name = None, value = None, attributes = {}):
+		self.name = name
+		self.value = value
+		self.attributes = attributes
 
+class options(dict):
+	def __init__(self, cflags = set(), lflags = set(), defines = {}, incdirs = set(), libdirs = set()):
+		self.setdefault('cflags', option('cflags', cflags, {'inherited'}))
+		self.setdefault('defines', option('defines', defines, {'inherited'}))
+		self.setdefault('incdirs', option('incdirs', incdirs, {'propagated'}))
+		self.setdefault('lflags', option('lflags', lflags, {'inherited'}))
+		self.setdefault('libdirs', option('libdirs', libdirs, {'propagated'}))
+	
 	def print(self):
-		if self.cflags:
-			print('cflags: ' + ','.join(self.cflags))
-		if self.lflags:
-			print('lflags: ' + ','.join(self.lflags))
-		if self.defines:
-			print('defines: ' + ','.join(self.defines))
-		if self.incdirs:
-			print('incdirs: ' + ','.join(self.incdirs))
-		if self.libdirs:
-			print('libdirs: ' + ','.join(self.libdirs))
+		for o,v in self.items():
+			print(o + ': ' + ','.join(v.values) + ' [' + ','.join(v.attributes) + ']')
+
+	def merge(self, other):
+		for k,v in self.items():
+			self.updateifexist(k,other)
+
+	def updateifexist(self, name, other):
+		if name not in self:
+			return
+
+		if not isinstance(other, options):
+			return
+
+		if name not in other:
+			return
+
+		if other.get(name) is not None:
+			self.get(name).value.update(other.get(name).value)
 
 class node(object):
 	def __init__(self, value = None, out_edges = {}):
