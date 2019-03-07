@@ -1,6 +1,8 @@
 import buildsystem.builders as bu
 import buildsystem.buildsystem as bs
 from buildsystem.consolecolors import consolecolors as cc
+import buildsystem.spec2dgml
+import os
 
 class config(object):
 	def __init__(self, outdir='.bs'):
@@ -107,3 +109,8 @@ class toolchain(object):
 			effectiveoptions.updateifexist(k, additionaloptions)
 
 		return effectiveoptions
+
+	def dgml(self, dep):
+		g = buildsystem.spec2dgml.spec2dgml(dep)
+		p = os.path.normpath(os.path.join(self.config.outdir, dep.name + '.dgml'))
+		g.write(p)

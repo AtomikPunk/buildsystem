@@ -3,6 +3,7 @@ import argparse
 import buildsystem.buildsystem as bs
 import buildsystem.toolchain as tc
 import buildsystem.vc14_x64 as vc14_x64
+import time
 
 argparser = argparse.ArgumentParser(description = 'buildsystem build script')
 argparser.add_argument('-t', '--tasks', help = 'comma separated list of tasks , eg: clean,build', default = 'clean,build')
@@ -12,7 +13,6 @@ argparser.add_argument('-f', '--file', help = 'path to spec file', default = 'bu
 argparser.add_argument('-o', '--outdir', help = 'path to output (build) directory', default = '.bs')
 args = argparser.parse_args()
 
-import time
 start_time = time.time()
 
 spec = bs.readspec(bs.readspecargs(file = args.file))
@@ -22,7 +22,3 @@ if spec is not None:
 
 end_time = time.time()
 print('Execution time: ' + str(round(end_time - start_time, 6)) + 's')
-
-import buildsystem.spec2dgml
-g = buildsystem.spec2dgml.spec2dgml(spec)
-g.write('test1.dgml')
