@@ -22,12 +22,14 @@ class toolchain(object):
 		self.options = opts
 		self.config = cfg
 
-	def build(self, dep, parentoptions = bs.options(), additionaloptions = bs.options()):
+	def build(self, dep):
+		# Inherit and propagate options to and from dependencies
+		self.setupoptions(dep)
+		self.builddep(dep)
+
+	def builddep(self, dep):
 		for d in dep.deps:
-			thisparentoptions = parentoptions
-			thisparentoptions.merge(dep)
-			self.build(d, thisparentoptions, additionaloptions)
-		#dep.inheritedoptions = childrenoptions
+			self.builddep(d)
 		if type(dep) in self.builders.keys():
 			builders = self.builders[type(dep)]
 			built = False
@@ -35,7 +37,7 @@ class toolchain(object):
 				if b.supports(dep):
 					b.setuptarget(dep, self.config)
 					if not b.up_to_date(dep):
-						success = b.build(dep, parentoptions)
+						success = b.build(dep)
 						if success:
 							print('[' + cc().green + 'b' + cc().reset + '] ' + dep.name + ': ' + ','.join(dep.outputs))
 						else:
@@ -74,6 +76,22 @@ class toolchain(object):
 
 	def showdeps(self, dep):
 		dep.showdeps()
+
+	def setupoptions(self, dep):
+		# Inherit options to dependencies
+		inherited = {k:v for k,v in dep.options.items() if 'inherited' in v.attributes}
+		for k,v in inherited.items():
+			for d in dep.deps:
+				d.options.updateifexist(k, dep.options)
+
+		for d in dep.deps:
+			self.setupoptions(d)
+
+		# Propagate options from dependencies
+		propagated = {k:v for k,v in dep.options.items() if 'propagated' in v.attributes}
+		for k,v in propagated.items():
+			for d in dep.deps:
+				dep.options.updateifexist(k, d.options)
 
 	def mergeoptions(self, dep, parentoptions, additionaloptions = None):
 		effectiveoptions = bs.options()

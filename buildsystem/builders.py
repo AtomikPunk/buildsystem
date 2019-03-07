@@ -24,7 +24,7 @@ class builder(object):
 			#print('  outputs: ' + ','.join(dep.outputs))
 	def supports(self, dep):
 		return True
-	def build(self, dep, parentoptions = bs.options(), opts = None):
+	def build(self, dep):
 		return True
 	def up_to_date(self, dep):
 		return False

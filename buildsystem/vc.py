@@ -62,13 +62,12 @@ class builder_cpp2obj(bu.command_builder):
 		#if bs.verbose:
 			#print('  outputs: ' + ','.join(dep.outputs))
 
-	def build(self, dep, parentoptions, opts = None):
+	def build(self, dep):
 		os.makedirs(os.path.dirname(dep.outputs[0]), exist_ok=True)
-		effectiveoptions = self.toolchain.mergeoptions(dep, opts)
 		cmd = [self.toolchain.compiler_path(), '/nologo', '/Fo' + dep.outputs[0]]
-		cmd.extend(['/D' + d + ('=' + str(v) if v else '') for d,v in effectiveoptions.get('defines').value.items()])
-		cmd.extend(['/I' + i for i in effectiveoptions.get('incdirs').value])
-		cmd.extend(effectiveoptions.get('cflags').value)
+		cmd.extend(['/D' + d + ('=' + str(v) if v else '') for d,v in dep.options.get('defines').value.items()])
+		cmd.extend(['/I' + i for i in dep.options.get('incdirs').value])
+		cmd.extend(dep.options.get('cflags').value)
 		cmd.extend(['/c'])
 		cmd.extend([d.outputs[0] for d in dep.deps if d.outputs])
 		p = super().call_build_command(cmd, dep)
@@ -108,10 +107,10 @@ class builder_exe(builder_linkable):
 		#if bs.verbose:
 			#print('  outputs: ' + ','.join(dep.outputs))
 		
-	def build(self, dep, parentoptions, opts = None):
+	def build(self, dep):
 		os.makedirs(os.path.dirname(dep.outputs[0]), exist_ok=True)
 		cmd = [self.toolchain.linker_path(), '/nologo', '/out:' + dep.outputs[0]]
-		return self.call_build_command(cmd, dep, opts = opts)
+		return self.call_build_command(cmd, dep)
 
 class builder_stlib(builder_linkable):
 	def __init__(self, toolchain, opts = None):
@@ -131,10 +130,10 @@ class builder_stlib(builder_linkable):
 		#if bs.verbose:
 			#print('  outputs: ' + ','.join(dep.outputs))
 		
-	def build(self, dep, parentoptions, opts = None):
+	def build(self, dep):
 		os.makedirs(os.path.dirname(dep.outputs[0]), exist_ok=True)
 		cmd = [self.toolchain.librarian_path(), '/nologo', '/out:' + dep.outputs[0]]
-		return self.call_build_command(cmd, dep, opts = opts)
+		return self.call_build_command(cmd, dep)
 
 class builder_shlib(builder_linkable):
 	def __init__(self, toolchain, opts = None):
@@ -155,10 +154,10 @@ class builder_shlib(builder_linkable):
 		#if bs.verbose:
 			#print('  outputs: ' + ','.join(dep.outputs))
 		
-	def build(self, dep, parentoptions, opts = None):
+	def build(self, dep):
 		os.makedirs(os.path.dirname(dep.outputs[0]), exist_ok=True)
 		cmd = [self.toolchain.linker_path(), '/nologo', '/dll', '/out:' + dep.outputs[1]]
-		return self.call_build_command(cmd, dep, opts = opts)
+		return self.call_build_command(cmd, dep)
 
 class builder_imlib(bu.builder):
 	def __init__(self, toolchain, opts = None):
@@ -180,5 +179,5 @@ class builder_imlib(bu.builder):
 		#if bs.verbose:
 			#print('  outputs: ' + ','.join(dep.outputs))
 
-	def build(self, dep, parentoptions, opts = None):
+	def build(self, dep):
 		return True
