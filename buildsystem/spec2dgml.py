@@ -29,6 +29,7 @@ def getcategories():
 		'executable': {'Background': 'LightGreen'},
 		'sharedlib': {'Background': 'LightBlue'},
 		'staticlib': {'Background': 'LightCyan'},
+		'importlib': {'Background': 'LightSteelBlue'},
 		'project': {'Background': 'LightYellow'},
 		}
 	return c
