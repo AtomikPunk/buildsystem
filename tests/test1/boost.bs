@@ -1,0 +1,23 @@
+import buildsystem.buildsystem as bs
+
+version = '1.65.1'
+multithreaded = True
+compilerstr = '-vc140'
+
+versionstr = version.replace('.','_')
+mt = ''
+if multithreaded:
+	mt = '-mt'
+
+boostdir = 'E:/Libs/boost_' + versionstr + '/'
+boostincdir = boostdir
+boostlibdir = boostdir + 'stage/lib/'
+
+modules = {}
+def addmodule(name):
+	modules[name] = bs.importlib(name, libs = {'boost_' + name + compilerstr + mt + '-' + versionstr})
+
+addmodule('filesystem')
+addmodule('system')
+
+spec = bs.importlib('boost', mods = modules, opts = bs.options(incdirs = {boostincdir}, libdirs = {boostlibdir}))

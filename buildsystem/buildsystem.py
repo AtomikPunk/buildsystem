@@ -52,7 +52,7 @@ def execspec(execspecargs):
 		op = getattr(execspecargs.toolchain, t, None)
 		if callable(op):
 			print('Task: ' + t)
-			op(execspecargs.spec)
+			op(copy.deepcopy(execspecargs.spec))
 		else:
 			print('Warning: unsupported task ' + t)
 
@@ -90,6 +90,11 @@ class options(dict):
 
 		if other.get(name) is not None:
 			self.get(name).value.update(other.get(name).value)
+
+class output(object):
+	def __init__(self, name, attributes = set()):
+		self.name = name
+		self.attributes = attributes
 
 class node(object):
 	def __init__(self, value = None, out_edges = {}):
@@ -184,5 +189,7 @@ class importlib(linkable):
 		result = copy.copy(self)
 		mods = [result.modules[n] for n in modnames if n in result.modules]
 		result.deps = mods
+		for m in mods:
+			result.libs.update(m.libs)
 		return result
 		

@@ -12,13 +12,13 @@ class toolchain(object):
 	def __init__(self, builders = {}, opts = bs.options(), cfg = config()):
 		super().__init__()
 		self.builders = {
-			bs.source: [bu.builder_alwaysuptodate(self)],
+			bs.source: [bu.builder_source(self)],
 			bs.compiled: [bu.builder(self)],
 			bs.executable: [bu.builder(self)],
 			bs.sharedlib: [bu.builder(self)],
 			bs.staticlib: [bu.builder(self)],
 			bs.project: [bu.builder(self)],
-			bs.importlib: [bu.builder_alwaysuptodate(self)],
+			bs.importlib: [bu.builder_importedlib(self)],
 			}
 		self.builders.update(builders)
 		self.options = opts
@@ -41,11 +41,11 @@ class toolchain(object):
 					if not b.up_to_date(dep):
 						success = b.build(dep)
 						if success:
-							print('[' + cc().green + 'b' + cc().reset + '] ' + dep.name + ': ' + ','.join(dep.outputs))
+							print('[' + cc().green + 'b' + cc().reset + '] ' + dep.name + ': ' + ','.join(o.name for o in dep.outputs))
 						else:
-							print('[' + cc().red + 'f' + cc().reset + '] ' + dep.name + ': ' + ','.join(dep.outputs))
+							print('[' + cc().red + 'f' + cc().reset + '] ' + dep.name + ': ' + ','.join(o.name for o in dep.outputs))
 					#elif bs.verbose:
-						#print('[-] ' + ','.join(dep.outputs))
+						#print('[-] ' + ','.join(o.name for o in dep.outputs))
 					built = True
 					break
 			if not built:
@@ -66,9 +66,9 @@ class toolchain(object):
 					b.setuptarget(dep, self.config)
 					if b.need_clean(dep):
 						b.clean(dep)
-						print('[' + cc().green + 'c' + cc().reset + '] ' + ','.join(dep.outputs))
+						print('[' + cc().green + 'c' + cc().reset + '] ' + ','.join(o.name for o in dep.outputs))
 					elif bs.verbose:
-						print('[-] ' + ','.join(dep.outputs))
+						print('[-] ' + ','.join(o.name for o in dep.outputs))
 					cleaned = True
 					break
 			if not cleaned:

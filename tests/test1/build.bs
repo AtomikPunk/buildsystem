@@ -2,6 +2,8 @@ import buildsystem.buildsystem as bs
 
 #bs.verbose = True
 
+boost = bs.readspec(bs.readspecargs('boost.bs'))
+
 e1 = bs.executable('myproj', srcs = ['mysrc1.cpp'])
 p1 = bs.project('myproj', [e1])
 
@@ -24,4 +26,6 @@ ilb1 = bs.staticlib('implib1', srcs = {'implib1.cpp'})
 il1 = bs.importlib('implib1', libs = {'.bs/implib1'}, deps = {ilb1})
 ilu1 = bs.executable('ilu1', srcs = {'ilu1.cpp'}, deps = {il1})
 
-spec = bs.project('mysolution', deps = [p1, p2, l1, l1u, l2, l2u, ps1u, ilu1], opts = bs.options(cflags = {'/EHsc'}))
+boostuse1 = bs.executable('boostuse1', srcs = {'boostuse1.cpp'}, deps = {boost.withmods({'filesystem', 'system'})}, opts = bs.options(defines = {'BOOST_ALL_NO_LIB':None}))
+
+spec = bs.project('mysolution', deps = [p1, p2, l1u, l2u, ps1u, ilu1, boostuse1], opts = bs.options(cflags = {'/EHsc'}))

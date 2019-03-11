@@ -48,7 +48,7 @@ class builder_cpp2obj(bu.command_builder):
 	def __init__(self, toolchain, opts = None):
 		super().__init__(toolchain, opts = opts)
 		self.out_ext = '.obj'
-		self.in_exts = ('.cpp', '.cc')
+		self.in_exts = ['.cpp', '.cc']
 
 	def setuptarget(self, dep, cfg):
 		#if bs.verbose:
@@ -56,20 +56,35 @@ class builder_cpp2obj(bu.command_builder):
 		output = os.path.normpath(os.path.join(cfg.outdir, dep.name))
 		if output.endswith(self.out_ext):
 			output = output[:-len(self.out_ext)]
-		dep.outputs = [
-			output + '.obj',
-			]
+		if dep.outputs:
+			print('warning: trying to add another "compiled" output to ' + dep.name)
+		dep.outputs.append(bs.output(output + '.obj', {'compiled'}))
 		#if bs.verbose:
-			#print('  outputs: ' + ','.join(dep.outputs))
+			#print('  outputs: ' + ','.join(dep.outputs.values()))
 
 	def build(self, dep):
-		os.makedirs(os.path.dirname(dep.outputs[0]), exist_ok=True)
-		cmd = [self.toolchain.compiler_path(), '/nologo', '/Fo' + dep.outputs[0]]
+		os.makedirs(os.path.dirname(dep.outputs[0].name), exist_ok=True)
+
+		# Lookup "compiled" output
+		compiled = [o.name for o in dep.outputs if 'compiled' in o.attributes]
+		if len(compiled) > 1:
+			print('warning: ' + dep.name + ' defines more than one "compiled" output...')
+
+		# Lookup "source" dependency
+		sources = []
+		for d in dep.deps:
+			for o in d.outputs:
+				if 'source' in o.attributes:
+					sources.append(o.name)
+		if len(sources) > 1:
+			print('warning: ' + dep.name + ' has more than one "source" dependency...')
+
+		cmd = [self.toolchain.compiler_path(), '/nologo', '/Fo' + compiled[0]]
 		cmd.extend(['/D' + d + ('=' + str(v) if v else '') for d,v in dep.options.get('defines').value.items()])
 		cmd.extend(['/I' + i for i in dep.options.get('incdirs').value])
 		cmd.extend(dep.options.get('cflags').value)
 		cmd.extend(['/c'])
-		cmd.extend([d.outputs[0] for d in dep.deps if d.outputs])
+		cmd.extend(sources)
 		p = super().call_build_command(cmd, dep)
 		self.printerrors(p)
 		return p.returncode == 0
@@ -77,13 +92,20 @@ class builder_cpp2obj(bu.command_builder):
 class builder_linkable(bu.command_builder):
 	def __init__(self, toolchain, opts = None):
 		super().__init__(toolchain, opts = opts)
-		self.in_exts = ('.obj', '.lib')
+		self.in_exts = ['.obj', '.lib']
 	
 	def call_build_command(self, cmd, dep, opts = None):
+		# Lookup "compiled", "importedlib" and "staticlib" dependencies
+		inputs = []
+		for d in dep.deps:
+			inputs.extend(o.name for o in d.outputs if 'compiled' in o.attributes)
+			inputs.extend(o.name for o in d.outputs if 'importedlib' in o.attributes)
+			inputs.extend(o.name for o in d.outputs if 'staticlib' in o.attributes)
+
 		effectiveoptions = self.toolchain.mergeoptions(dep, opts)
 		cmd.extend(['/LIBPATH:' + os.path.normpath(d) for d in effectiveoptions.get('libdirs').value])
 		cmd.extend(effectiveoptions.get('lflags').value)
-		cmd.extend([d.outputs[0] for d in dep.deps if d.outputs])
+		cmd.extend(inputs)
 		p = super().call_build_command(cmd, dep)
 		self.printerrors(p)
 		return p.returncode == 0
@@ -99,17 +121,13 @@ class builder_exe(builder_linkable):
 		output = os.path.normpath(os.path.join(cfg.outdir, dep.name))
 		if output.endswith(self.out_ext):
 			output = output[:-len(self.out_ext)]
-		dep.outputs = [
-			output + '.exe',
-#			output + '.lib',
-#			output + '.exp',
-			]
+		dep.outputs.append(bs.output(output + '.exe', {'executable'}))
 		#if bs.verbose:
 			#print('  outputs: ' + ','.join(dep.outputs))
 		
 	def build(self, dep):
-		os.makedirs(os.path.dirname(dep.outputs[0]), exist_ok=True)
-		cmd = [self.toolchain.linker_path(), '/nologo', '/out:' + dep.outputs[0]]
+		os.makedirs(os.path.dirname(dep.outputs[0].name), exist_ok=True)
+		cmd = [self.toolchain.linker_path(), '/nologo', '/out:' + dep.outputs[0].name]
 		return self.call_build_command(cmd, dep)
 
 class builder_stlib(builder_linkable):
@@ -123,16 +141,13 @@ class builder_stlib(builder_linkable):
 		output = os.path.normpath(os.path.join(cfg.outdir, dep.name))
 		if output.endswith(self.out_ext):
 			output = output[:-len(self.out_ext)]
-		dep.outputs = [
-			output + '.lib',
-#			output + '.exp',
-			]
+		dep.outputs.append(bs.output(output + '.lib', {'staticlib'}))
 		#if bs.verbose:
 			#print('  outputs: ' + ','.join(dep.outputs))
 		
 	def build(self, dep):
-		os.makedirs(os.path.dirname(dep.outputs[0]), exist_ok=True)
-		cmd = [self.toolchain.librarian_path(), '/nologo', '/out:' + dep.outputs[0]]
+		os.makedirs(os.path.dirname(dep.outputs[0].name), exist_ok=True)
+		cmd = [self.toolchain.librarian_path(), '/nologo', '/out:' + dep.outputs[0].name]
 		return self.call_build_command(cmd, dep)
 
 class builder_shlib(builder_linkable):
@@ -146,17 +161,19 @@ class builder_shlib(builder_linkable):
 		output = os.path.normpath(os.path.join(cfg.outdir, dep.name))
 		if output.endswith(self.out_ext):
 			output = output[:-len(self.out_ext)]
-		dep.outputs = [
-			output + '.lib',
-			output + '.dll',
-			output + '.exp',
-			]
+		dep.outputs.append(bs.output(output + '.lib', {'staticlib'}))
+		dep.outputs.append(bs.output(output + '.dll', {'sharedlib'}))
+		dep.outputs.append(bs.output(output + '.exp', {'other'}))
 		#if bs.verbose:
 			#print('  outputs: ' + ','.join(dep.outputs))
 		
 	def build(self, dep):
-		os.makedirs(os.path.dirname(dep.outputs[0]), exist_ok=True)
-		cmd = [self.toolchain.linker_path(), '/nologo', '/dll', '/out:' + dep.outputs[1]]
+		os.makedirs(os.path.dirname(dep.outputs[0].name), exist_ok=True)
+		shlibs = [o for o in dep.outputs if 'sharedlib' in o.attributes]
+		if len(shlibs) > 1:
+			print('warning: ' + dep.name + ' defines more than one "sharedlib" output...')
+
+		cmd = [self.toolchain.linker_path(), '/nologo', '/dll', '/out:' + shlibs[0].name]
 		return self.call_build_command(cmd, dep)
 
 class builder_imlib(bu.builder):
@@ -171,10 +188,8 @@ class builder_imlib(bu.builder):
 		for o in outputs:
 			if o.endswith(self.out_ext):
 				o = o[:-len(self.out_ext)]
-			if o + '.lib' not in dep.outputs:
-				dep.outputs.append(o + '.lib')
-			if o + '.dll' not in dep.outputs:
-				dep.outputs.append(o + '.dll')
+			dep.outputs.append(bs.output(o + '.lib', {'staticlib'}))
+			dep.outputs.append(bs.output(o + '.dll', {'sharedlib'}))
 		#print(dep.name + ': ' + ','.join(outputs))
 		#if bs.verbose:
 			#print('  outputs: ' + ','.join(dep.outputs))

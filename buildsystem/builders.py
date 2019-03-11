@@ -19,9 +19,9 @@ class builder(object):
 		output = os.path.join(cfg.outdir, os.path.normpath(dep.name))
 		if not output.endswith(self.out_ext):
 			output = output + self.out_ext
-		dep.outputs = [output]
+		dep.outputs.append(bs.output(output))
 		#if bs.verbose:
-			#print('  outputs: ' + ','.join(dep.outputs))
+			#print('  outputs: ' + ','.join(o.name for o in dep.outputs))
 	def supports(self, dep):
 		return True
 	def build(self, dep):
@@ -32,27 +32,34 @@ class builder(object):
 		for o in dep.outputs:
 			try:
 				if bs.verbose:
-					print('Removing ' + o)
-				os.remove(o)
+					print('Removing ' + o.name)
+				os.remove(o.name)
 			except OSError:
 				pass
 	def need_clean(self, dep):
-		return any([os.path.isfile(o) for o in dep.outputs])
+		return any(os.path.isfile(o.name) for o in dep.outputs)
 
 class builder_alwaysuptodate(builder):
-	def setuptarget(self, dep, cfg):
-		#if bs.verbose:
-			#print('setuptarget: ' + dep.name + ' with builder ' + str(type(self)))
-		output = os.path.normpath(dep.name) # This is not an intermediate file, do not prepend cfg.outdir...
-		if not output.endswith(self.out_ext):
-			output = output + self.out_ext
-		dep.outputs = [output]
-		#if bs.verbose:
-			#print('  outputs: ' + ','.join(dep.outputs))
+	def appendextifmissing(self, name):
+		namewithext = os.path.normpath(name)
+		if not namewithext.endswith(self.out_ext):
+			namewithext = namewithext + self.out_ext
+		return namewithext
 	def up_to_date(self, dep):
 		return True
 	def need_clean(self, dep):
 		return False
+
+class builder_source(builder_alwaysuptodate):
+	def setuptarget(self, dep, cfg):
+		output = self.appendextifmissing(dep.name) # This is not an intermediate file, do not prepend cfg.outdir...
+		dep.outputs.append(bs.output(output,{'source'}))
+
+class builder_importedlib(builder_alwaysuptodate):
+	def setuptarget(self, dep, cfg):
+		for l in dep.libs:
+			output = self.appendextifmissing(l) # This is not an intermediate file, do not prepend cfg.outdir...
+			dep.outputs.append(bs.output(output,{'implib'}))
 
 class command_builder(builder):
 	def __init__(self, toolchain, opts = None):
@@ -62,12 +69,12 @@ class command_builder(builder):
 	def up_to_date(self, dep):
 		try:
 			for o in dep.outputs:
-				if not os.path.isfile(o):
+				if not os.path.isfile(o.name):
 					if bs.verbose:
-						print(dep.name + ' is not up-to-date because ' + o + ' is not a file')
+						print(dep.name + ' is not up-to-date because ' + o.name + ' is not a file')
 					return False
-				target_timestamp = os.path.getmtime(o)
-				if not all([all([os.path.getmtime(do) <= target_timestamp for do in d.outputs]) for d in dep.deps]):
+				target_timestamp = os.path.getmtime(o.name)
+				if not all([all([os.path.getmtime(do.name) <= target_timestamp for do in d.outputs]) for d in dep.deps]):
 					if bs.verbose:
 						print(dep.name + ' is not up-to-date because one of its dependency is not up-to-date')
 					return False
