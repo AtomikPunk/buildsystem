@@ -65,8 +65,19 @@ class element(object):
 		self.children = []
 		self.attributes = {}
 		self.name = name
+		self.selfclosing = False
 
-class vsxml2reader(object):
+class vcxproj(object):
+	def __init__(self, rootnode):
+		self.rootnode = rootnode
+
+	def getconfigurations(self):
+		cfgs = []
+		for pc in self.rootnode.children[0].children:
+			cfgs.append(pc.attributes['Include'])
+		return cfgs
+
+class reader(object):
 	def __init__(self):
 		self.str = None
 		self.parsedindex = None
@@ -94,18 +105,18 @@ class vsxml2reader(object):
 		components = self.str[idx[0] + 1 : idx[1] - 1].split(' ')
 		name = components.pop(0)
 		#print('vsxml: ' + name)
-		if not len(components):
-			empty = False
-		else:
-			empty = components[-1] == '/'
-			if empty:
+		selfclosing = False
+		if components:
+			selfclosing = components[-1] == '/'
+			if selfclosing:
 				components.pop()
 
 		e = element(name)
 		if components:
 			e.attributes = self.parseattributes(components)
 
-		if empty:
+		if selfclosing:
+			e.selfclosing = True
 			return e
 
 		idx = self.locateelement(idx[1] + 1)
@@ -144,7 +155,7 @@ class vsxml2reader(object):
 	def parseattributes(self, alist):
 		attr = {}
 		for a in alist:
-			pair = a.split('=')
+			pair = a.split('=', 1)
 			if len(pair) < 2:
 				pair = pair
 			key = pair[0]
@@ -152,7 +163,7 @@ class vsxml2reader(object):
 			attr[key] = value
 		return attr
 
-class vsxml2writer(object):
+class writer(object):
 	def __init__(self):
 		self.indentlevel = 0
 		self.indentsymbol = '  '
@@ -172,10 +183,11 @@ class vsxml2writer(object):
 		s += self.indentlevel*self.indentsymbol + '<' + node.name
 		for k,v in node.attributes.items():
 			s += ' ' + k + '="' + v + '"'
-		if node.children:
+		if node.selfclosing:
+			s += ' />'
+		else:
 			s += '>'
 			self.indentlevel += 1
-			haselement = False
 			for c in node.children:
 				if isinstance(c, str):
 					# text
@@ -183,21 +195,23 @@ class vsxml2writer(object):
 				elif isinstance(c, element):
 					# element
 					s += '\n' + self.elementtostring(c)
-					haselement = True
 			self.indentlevel -= 1
-			if haselement:
+			if len(node.children) == 1 and isinstance(node.children[0], str):
+				pass
+			else:
 				s += '\n' + self.indentlevel*self.indentsymbol
 			s += '</' + node.name + '>'
-		else:
-			s += ' />'
 		return s
 
 	def prolog(self):
 		return '<?xml version="1.0" encoding="utf-8"?>\n'
 
 if __name__ == "__main__":
-	r = vsxml2reader()
-	xml = r.read('test.vcxproj')
+	r = reader()
+	p = r.read('test.vcxproj')
 
-	w = vsxml2writer()
-	w.write('testwrite.vcxproj', xml)
+	vx = vcxproj(p)
+	print(vx.getconfigurations())
+
+	w = writer()
+	w.write('testwrite.vcxproj', p)
