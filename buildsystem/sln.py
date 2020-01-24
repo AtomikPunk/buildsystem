@@ -1,27 +1,38 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Feb  2 13:50:50 2018
-
-@author: fdinel
-"""
+from . import vcxproj
 
 import uuid
 import re
 
 ProjectTypes = {
-	'2150E333-8FDC-42A3-9474-1A3956D46DE8' : 'Folder',
-	'8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942' : 'C++',
+	'Folder': '2150E333-8FDC-42A3-9474-1A3956D46DE8',
+	'C++': '8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942',
 	}
 
 class Project:
-	def __init__(self):
-		self.guid = None
-		self.name = ''
-		self.fileName = ''
-		self.type = None
+	def __init__(self, name = None, guid = None, fileName = None, type = None, loaded = None):
+		self.name = name or ''
+		self.guid = guid
+		self.fileName = fileName or self.name + '.vcxproj'
+		self.type = type
 		self.deps = []
 		self.items = []
-		self.loaded = None
+		self.loaded = loaded
+
+	def load(self):
+		# Skip folders
+		if self.isfolder():
+			return
+
+		pf = self.fileName
+		#print('Loading project ' + pf)
+		pr = vcxproj.reader()
+		p = pr.read(pf)
+
+		self.loaded = vcxproj.vcxproj(p)
+
+	def isfolder(self):
+		# Optimize this...
+		return str(self.type).upper() == ProjectTypes.get('Folder')
 
 class Solution:
 	def __init__(self):
@@ -31,14 +42,84 @@ class Solution:
 		self.configs = []
 		self.projectconfigs = []
 		self.props = []
-		self.nestedprojects = []
+		self.nestedprojects = {}
+		self.extensibilityglobals = []
 		self.testcasemgmtsettings = []
+		self._toolset = None
+		self._sdk = None
+
+	def getproject(self, nameoruuid):
+		if isinstance(nameoruuid, uuid.UUID):
+			return [(k,v) for (k,v) in self.projects.items() if v.guid == nameoruuid and not v.isfolder()]
+		else:
+			return [(k,v) for (k,v) in self.projects.items() if v.name == nameoruuid and not v.isfolder()]
+
+	def setfolder(self, project, folder):
+		folderprojects = {k:v for k,v in self.projects.items() if v.isfolder()}
+
+		folders = folder.split('/')
+		lastfolder = None
+		for f in folders:
+			matchingprojects = {k:v for k,v in folderprojects.items() if v.name == f and lastfolder == self.nestedprojects.get(k, None)}
+			if matchingprojects:
+				lastfolder = next(iter(matchingprojects))
+				if len(matchingprojects) > 1:
+					print('DM warning: more than one matching folder for project ' + project.name + ', assigning arbitrarily to ' + str(lastfolder).upper() + '...')
+			else:
+				p = Project()
+				p.guid = uuid.uuid1()
+				p.name = f
+				p.fileName = f
+				p.type = uuid.UUID(ProjectTypes.get('Folder'))
+
+				lastfolder = p.guid
+				folderprojects.setdefault(f, lastfolder)
+				self.projects.setdefault(lastfolder, p)
+		#oldfolder = self.nestedprojects.get(project.guid, None)
+		#if oldfolder != lastfolder:
+		#	print('DM warning: relocating ' + project.name + ' to ' + folder)
+		self.nestedprojects[project.guid] = lastfolder
+
+	def introspection(self):
+		self.printreferences()
+
+	def printreferences(self):
+		for ksp,sp in self.projects.items():
+			if not sp.loaded:
+				continue
+			refs = sp.loaded.getreferences()
+			if refs:
+				print(sp.name + ' has project references set:')
+				for kr,r in refs.items():
+					print('  ' + r)
+
+	@property
+	def toolset(self):
+		return self._toolset
+
+	@toolset.setter
+	def toolset(self, value):
+		self._toolset = value
+		for kp,p in self.projects.items():
+			if p.loaded:
+				p.loaded.toolset = value
+
+	@property
+	def sdk(self):
+		return self._sdk
+
+	@sdk.setter
+	def sdk(self, value):
+		self._sdk = value
+		for kp,p in self.projects.items():
+			if p.loaded:
+				p.loaded.sdk = value
 
 class SolutionReader:
 	def __init__(self, fileName):
 		self.fileName = fileName
 	
-	def parse(self):
+	def parse(self, parseprojects = False):
 		s = Solution()
 		s.fileName = self.fileName
 		
@@ -134,7 +215,18 @@ class SolutionReader:
 							cfg = re.search(r'\t\t\{(.*)\} = \{(.*)\}', line)
 							if cfg is None:
 								print(line)
-							s.nestedprojects.append((cfg.group(1), cfg.group(2)))
+							s.nestedprojects.setdefault(uuid.UUID(cfg.group(1)), uuid.UUID(cfg.group(2)))
+							line = f.readline()
+
+					# Extensibility globals
+					line = f.readline()
+					if line == '\tGlobalSection(ExtensibilityGlobals) = postSolution\n':
+						line = f.readline()
+						while 'EndGlobalSection' not in line:
+							cfg = re.search(r'\t\t(.*) = (.*)', line)
+							if cfg is None:
+								print(line)
+							s.extensibilityglobals.append((cfg.group(1), cfg.group(2)))
 							line = f.readline()
 
 					# Test case management settings
@@ -153,58 +245,82 @@ class SolutionReader:
 						
 				line = f.readline()
 					
+		if parseprojects:
+			for k,sp in s.projects.items():
+				try:
+					sp.load()
+				except:
+					pass
+
 		return s
 
 class SolutionWriter:
 	def __init__(self, solution = None):
 		self.solution = solution
-		
+
 	def write(self, fileName):
-		with open(fileName, 'w') as f:
-			f.write('\n')
-			f.write('Microsoft Visual Studio Solution File, Format Version ' + self.solution.version + '\n')
-			f.write('# Visual Studio 14\n')
-			f.write('VisualStudioVersion = 14.0.25420.1\n')
-			f.write('MinimumVisualStudioVersion = 10.0.40219.1\n')
+		original = ''
+		with open(fileName, 'r', encoding='utf-8-sig') as f:
+			original = f.read()
+		new = self.tostring()
+		if original != new:
+			print('sln: Updating ' + fileName)
+			with open(fileName, 'w', encoding='utf-8-sig') as f:
+				f.write(new)
 
-			for k,p in self.solution.projects.items():
-				f.write('Project("{' + str(p.type).upper() + '}") = "' + p.name + '", "' + p.fileName + '", "{' + str(p.guid).upper() + '}"\n')
-				if p.deps:
-					f.write('\tProjectSection(ProjectDependencies) = postProject\n')
-					for d in p.deps:
-						f.write('\t\t{' + str(d).upper() + '} = {' + str(d).upper() + '}\n')
-					f.write('\tEndProjectSection\n')
-				if p.items:
-					f.write('\tProjectSection(SolutionItems) = preProject\n')
-					for i in p.items:
-						f.write('\t\t' + i + ' = ' + i + '\n')
-					f.write('\tEndProjectSection\n')
-				f.write('EndProject\n')
+	def tostring(self):
+		s = ''
+		s += '\n'
+		s += 'Microsoft Visual Studio Solution File, Format Version ' + self.solution.version + '\n'
+		s += '# Visual Studio Version 16\n'
+		s += 'VisualStudioVersion = 16.0.28803.156\n'
+		s += 'MinimumVisualStudioVersion = 10.0.40219.1\n'
 
-			f.write('Global\n')
-			if self.solution.configs:
-				f.write('\tGlobalSection(SolutionConfigurationPlatforms) = preSolution\n')
-				for c in self.solution.configs:
-					f.write('\t\t' + c + ' = ' + c + '\n')
-				f.write('\tEndGlobalSection\n')
-			if self.solution.projectconfigs:
-				f.write('\tGlobalSection(ProjectConfigurationPlatforms) = postSolution\n')
-				for c in self.solution.projectconfigs:
-					f.write('\t\t{' + c[0] + '}.' + c[1] + '.' + c[2] + ' = ' + c[3] + '\n')
-				f.write('\tEndGlobalSection\n')
-			if self.solution.props:
-				f.write('\tGlobalSection(SolutionProperties) = preSolution\n')
-				for c in self.solution.props:
-					f.write('\t\t' + c[0] + ' = ' + c[1] + '\n')
-				f.write('\tEndGlobalSection\n')
-			if self.solution.nestedprojects:
-				f.write('\tGlobalSection(NestedProjects) = preSolution\n')
-				for c in self.solution.nestedprojects:
-					f.write('\t\t{' + c[0] + '} = {' + c[1] + '}\n')
-				f.write('\tEndGlobalSection\n')
-			if self.solution.testcasemgmtsettings:
-				f.write('\tGlobalSection(TestCaseManagementSettings) = postSolution\n')
-				for c in self.solution.testcasemgmtsettings:
-					f.write('\t\t' + c[0] + ' = ' + c[1] + '\n')
-				f.write('\tEndGlobalSection\n')
-			f.write('EndGlobal\n')
+		for k,p in self.solution.projects.items():
+			s += 'Project("{' + str(p.type).upper() + '}") = "' + p.name + '", "' + p.fileName + '", "{' + str(p.guid).upper() + '}"\n'
+			if p.deps:
+				s += '\tProjectSection(ProjectDependencies) = postProject\n'
+				for d in p.deps:
+					s += '\t\t{' + str(d).upper() + '} = {' + str(d).upper() + '}\n'
+				s += '\tEndProjectSection\n'
+			if p.items:
+				s += '\tProjectSection(SolutionItems) = preProject\n'
+				for i in p.items:
+					s += '\t\t' + i + ' = ' + i + '\n'
+				s += '\tEndProjectSection\n'
+			s += 'EndProject\n'
+
+		s += 'Global\n'
+		if self.solution.configs:
+			s += '\tGlobalSection(SolutionConfigurationPlatforms) = preSolution\n'
+			for c in self.solution.configs:
+				s += '\t\t' + c + ' = ' + c + '\n'
+			s += '\tEndGlobalSection\n'
+		if self.solution.projectconfigs:
+			s += '\tGlobalSection(ProjectConfigurationPlatforms) = postSolution\n'
+			for c in self.solution.projectconfigs:
+				s += '\t\t{' + c[0] + '}.' + c[1] + '.' + c[2] + ' = ' + c[3] + '\n'
+			s += '\tEndGlobalSection\n'
+		if self.solution.props:
+			s += '\tGlobalSection(SolutionProperties) = preSolution\n'
+			for c in self.solution.props:
+				s += '\t\t' + c[0] + ' = ' + c[1] + '\n'
+			s += '\tEndGlobalSection\n'
+		if self.solution.nestedprojects:
+			s += '\tGlobalSection(NestedProjects) = preSolution\n'
+			for kc,c in self.solution.nestedprojects.items():
+				s += '\t\t{' + str(kc).upper() + '} = {' + str(c).upper() + '}\n'
+			s += '\tEndGlobalSection\n'
+		if self.solution.extensibilityglobals:
+			s += '\tGlobalSection(ExtensibilityGlobals) = postSolution\n'
+			for c in self.solution.extensibilityglobals:
+				s += '\t\t' + c[0] + ' = ' + c[1] + '\n'
+			s += '\tEndGlobalSection\n'
+		if self.solution.testcasemgmtsettings:
+			s += '\tGlobalSection(TestCaseManagementSettings) = postSolution\n'
+			for c in self.solution.testcasemgmtsettings:
+				s += '\t\t' + c[0] + ' = ' + c[1] + '\n'
+			s += '\tEndGlobalSection\n'
+		s += 'EndGlobal\n'
+
+		return s

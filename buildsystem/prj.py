@@ -1,10 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Feb  2 14:28:54 2018
-
-@author: fdinel
-"""
-
 import os
 import re
 
@@ -35,5 +28,8 @@ class Project:
 		self.fileName = ''
 		self.configs = {}
 		self.tree = None
-		self.name = ''
+		self.projectname = ''
 		self.guid = None
+		self.rootnamespace = None
+		self.keyword = None
+		self.targetversion = None

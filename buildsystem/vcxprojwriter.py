@@ -1,4 +1,5 @@
 import vsxml
+import os.path
 
 class ProjectWriter:
 	def __init__(self, project):
@@ -40,10 +41,12 @@ class ProjectWriter:
 		with self.vsxml.el('PropertyGroup', [('Label', 'Globals')]):
 			with self.vsxml.el('ProjectGuid', inline=True):
 				self.vsxml.write('{' + str(self.project.guid).upper() + '}')
-			with self.vsxml.el('Keyword', inline=True):
-				self.vsxml.write(self.project.keyword)
 			with self.vsxml.el('RootNamespace', inline=True):
 				self.vsxml.write(self.project.rootnamespace)
+			with self.vsxml.el('Keyword', inline=True):
+				self.vsxml.write(self.project.keyword)
+			with self.vsxml.el('ProjectName', inline=True):
+				self.vsxml.write(self.project.projectname)
 			if self.project.targetversion:
 				with self.vsxml.el('WindowsTargetPlatformVersion', inline=True):
 					self.vsxml.write(self.project.targetversion)
@@ -112,28 +115,10 @@ if __name__ == "__main__":
 	p = prj.Project()
 	p.fileName = 'test.vcxproj'
 	
-	p.name = 'Test'
-	p.guid = uuid.UUID('74CBA50E-368C-4EC1-958F-5576F61A543F')
+	p.guid = uuid.UUID('385152F0-3BA0-4573-9868-27ECE8BA0D3D')
 	p.keyword = 'Win32Proj'
-	p.rootnamespace = 'App'
-	p.targetversion = '8.1'
-
-	pc = prj.ProjectConfig()
-	pc.configtype = 'Application'
-	pc.usedebuglibs = 'true'
-	pc.platformtoolset = 'v140'
-	pc.characterset = 'Unicode'
-	pc.linkincremental = 'true'
-	p.configs['Debug|Win32'] = pc
-
-	pc = prj.ProjectConfig()
-	pc.configtype = 'Application'
-	pc.usedebuglibs = 'false'
-	pc.platformtoolset = 'v140'
-	pc.wholeprogramoptimization = 'true'
-	pc.characterset = 'Unicode'
-	pc.linkincremental = 'false'
-	p.configs['Release|Win32'] = pc
+	p.rootnamespace = 'Common'
+	p.projectname = 'Utilities'
 
 	pc = prj.ProjectConfig()
 	pc.configtype = 'Application'
