@@ -10,6 +10,7 @@ import os
 import uuid
 import zipfile
 import re
+import copy
 
 import jinja2
 
@@ -31,6 +32,18 @@ class DependencyManager(object):
 		self.keepunuseddeps = False#True
 		# Warn user of unused project dependencies?
 		self.warmunuseddeps = True
+
+		# Parameters for the "CopyDeps" script
+		# Solution directory (corresponding to the $(SolutionDir) variable in msbuild)
+		self.solutiondir = ''
+		# Configuration to pack
+		self.configuration = 'Release'
+		# Platform to pack
+		self.platform = 'x64'
+		# Output directory (corresponding to the $(OutDir) variable in msbuild)
+		self.outdir = ''
+		# Extra commands to include in "CopyDeps" script
+		self.copydepsextracommands = ''
 
 		self.loaddeps()
 
@@ -127,7 +140,8 @@ class DependencyManager(object):
 		deps = self.getdeps(name)
 
 		values = {}
-		for dk,d in deps.items():
+		noninterfacedeps = {k:v for k,v in deps.items() if not v or 'interface' not in v}
+		for dk,d in noninterfacedeps.items():
 			# Get children public or interface (not private) items enabled for this configuration or all configurations
 			found = {k:v for k,v in self.deps.get(dk).get(tag, {}).items() if v and ((not v.get('config', {}) or cfg in v.get('config', {})) and ('public' in v or 'interface' in v))}
 			values.update(found)
@@ -150,16 +164,21 @@ class DependencyManager(object):
 	def mergedeps(self, deps1, deps2):
 		# Merge and flatten a dictionary of dependencies (name, spec)
 		deps = deps1
-		for dk,d in deps2.items():
+		for dk,d2 in deps2.items():
 			if dk not in deps:
 				# Dep is new, simply reuse dep...
-				deps.setdefault(dk, d)
+				deps.setdefault(dk, d2)
 				continue
 
 			# Otherwise we need to merge
 			# Something to do if spec is None?
-			if d:
-				for ik,i in d.items():
+
+			# Merge visibility
+			d1 = deps1.get(dk)
+			deps[dk] = self.mergedep(d1, d2)
+
+			if d2:
+				for ik,i in d2.items():
 					if ik == 'deps':
 						for ck,c in i.items():
 							childdeps = self.getpublicdeps(ck, c)
@@ -167,13 +186,43 @@ class DependencyManager(object):
 
 		return deps
 
+	def mergedep(self, dep1, dep2):
+		if dep1 is None and dep2 is None:
+			return None
+
+		if dep1 and 'interface' in dep1 and dep2 and 'interface' in dep2:
+			# interface
+			dep = copy.copy(dep1)
+			# in case... Should not be required if spec is well-formed
+			dep.pop('private', None)
+			dep.pop('public', None)
+		elif (dep1 is None or 'private' in dep1) and (dep2 is None or 'private' in dep2):
+			# private
+			if dep1 is not None:
+				dep = copy.copy(dep1)
+			else:
+				dep = copy.copy(dep2)
+			dep.pop('public', None)
+			dep.pop('interface', None)
+		else:
+			if dep1 is not None:
+				dep = copy.copy(dep1)
+			else:
+				dep = copy.copy(dep2)
+			dep.setdefault('public', None)
+			dep.pop('private', None)
+			dep.pop('interface', None)
+
+		return dep
+
 	def getpublicdeps(self, name, spec):
 		dep = self.deps.get(name)
 		if not dep:
 			raise KeyError('Dep ' + name + ' does not exist')
 		deps = {}
 
-		for d,a in {k:v for k,v in dep.get('deps', {}).items() if v and ('public' in v.keys() or 'interface' in v.keys())}.items():
+		publicdeps = {k:v for k,v in dep.get('deps', {}).items() if v and ('public' in v.keys() or 'interface' in v.keys())}
+		for d,a in publicdeps.items():
 			childdeps = self.getpublicdeps(d, a)
 			deps = self.mergedeps(deps, childdeps)
 
@@ -195,6 +244,19 @@ class DependencyManager(object):
 				w = vcxproj.writer(p.loaded)
 				w.write(p.fileName)
 
+		self.writecopydeps()
+
+	def writecopydeps(self):
+		with open(self.sln.fileName + '.copydeps.bat', 'w') as f:
+			depswithpostbuildcommands = {k:v for k,v in self.deps.items() if not os.path.isfile(self.projectpathfordep(k, v)) and 'postbuildcommands' in v and v.get('postbuildcommands',None) is not None}
+			for dk,dv in depswithpostbuildcommands.items():
+				f.write('::' + dk + '\n')
+				for ck,cv in dv.get('postbuildcommands').items():
+					cmd = ck.replace('$(SolutionDir)', self.solutiondir).replace('$(Configuration)', self.configuration).replace('$(Platform)', self.platform).replace('$(OutDir)', self.outdir)
+					f.write(cmd + '\n')
+
+			f.write(self.copydepsextracommands)
+
 	def update(self):
 		if self.manageprojects:
 			for n in self.deps.keys():
@@ -215,14 +277,20 @@ class DependencyManager(object):
 
 		self.updatedependencies(project)
 
+	def projectpathfordep(self, name, dep):
+		prj = dep.get('project',{})
+		dir = next(iter(prj.get('directory',{'':None})))
+		filename = next(iter(prj.get('filename',{name:None})))
+		path = dir.rstrip('/') + '/' + filename + '.vcxproj'
+		return path
+
 	def createprojectfiles(self, name):
 		try:
 			dep = self.deps.get(name)
 			spec = dep.get('project')
 
 			guid = None
-			dir = next(iter(spec.get('directory',{'':None})))
-			path = os.path.join(dir, name + '.vcxproj')
+			path = self.projectpathfordep(name, spec)
 
 			# Is GUID provided?
 			if 'uuid' in spec:
